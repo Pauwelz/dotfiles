@@ -16,6 +16,9 @@ packages:
     apt:
       - 'git'
       - 'pipx'
+      - 'ghostty'
+      - 'fish'
+      - 'starship'
     snap:
       - 'bw'
       - 'bitwarden'

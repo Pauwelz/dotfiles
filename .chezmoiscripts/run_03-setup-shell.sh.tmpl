@@ -1,0 +1,70 @@
+{{ if eq .chezmoi.os "linux" -}}
+#!/bin/bash
+set -euf -o pipefail
+
+FONT_DIR="$HOME/.local/share/fonts/FiraCodeNerdFont"
+VERSION_FILE="$FONT_DIR/.installed-version"
+
+latest_tag="$(curl -fsSL https://api.github.com/repos/ryanoasis/nerd-fonts/releases/latest \
+  | grep -o '"tag_name": *"[^"]*"' \
+  | head -n1 \
+  | sed -E 's/.*"([^"]+)"$/\1/')"
+
+if [ -z "$latest_tag" ]; then
+  echo "Could not determine latest nerd-fonts release, skipping." >&2
+  exit 0
+fi
+
+installed_tag=""
+if [ -f "$VERSION_FILE" ]; then
+  installed_tag="$(cat "$VERSION_FILE")"
+fi
+
+if [ "$installed_tag" = "$latest_tag" ]; then
+  echo "FiraCode Nerd Font already up to date ($latest_tag)."
+  exit 0
+fi
+
+echo "Installing FiraCode Nerd Font $latest_tag (was: ${installed_tag:-none})..."
+
+tmp_zip="$(mktemp --suffix=.zip)"
+trap 'rm -f "$tmp_zip"' EXIT
+
+curl -fsSL -o "$tmp_zip" \
+  "https://github.com/ryanoasis/nerd-fonts/releases/download/${latest_tag}/FiraCode.zip"
+
+rm -rf "$FONT_DIR"
+mkdir -p "$FONT_DIR"
+unzip -oq "$tmp_zip" -d "$FONT_DIR"
+
+# Nerd Fonts release zips bundle license/readme files alongside the .ttf files; keep fonts only
+find "$FONT_DIR" -type f ! -iname '*.ttf' -delete
+
+echo "$latest_tag" > "$VERSION_FILE"
+
+fc-cache -f "$FONT_DIR" > /dev/null
+
+echo "FiraCode Nerd Font $latest_tag installed."
+
+( cd /tmp && /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/mkasberg/ghostty-ubuntu/HEAD/install.sh)" )
+
+GHOSTTY_BIN="$(command -v ghostty)"
+
+# --- Register as x-terminal-emulator (Debian/Ubuntu alternatives system) ---
+sudo update-alternatives --install /usr/bin/x-terminal-emulator x-terminal-emulator "$GHOSTTY_BIN" 50
+sudo update-alternatives --set x-terminal-emulator "$GHOSTTY_BIN"
+
+# --- Point Ubuntu's Ctrl+Alt+T ("Launch Terminal") at Ghostty ---
+gsettings set org.gnome.desktop.default-applications.terminal exec "$GHOSTTY_BIN"
+gsettings set org.gnome.desktop.default-applications.terminal exec-arg "-e"
+
+FISH_BIN="$(command -v fish)"
+CURRENT_SHELL="$(getent passwd "$(whoami)" | cut -d: -f7)"
+
+if [ "$CURRENT_SHELL" != "$FISH_BIN" ]; then
+  echo "Setting login shell to $FISH_BIN (was: $CURRENT_SHELL)"
+  sudo usermod --shell "$FISH_BIN" "$(whoami)"
+else
+  echo "Login shell already fish."
+fi
+{{ end -}}
