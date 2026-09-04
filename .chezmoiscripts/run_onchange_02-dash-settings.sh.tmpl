@@ -5,4 +5,8 @@ set -eufo pipefail
 dconf load /org/gnome/shell/ <<'EOF'
 {{ include ".chezmoitemplates/gnome-shell-dconf.ini" }}
 EOF
+
+dconf load /org/gnome/nautilus/ <<'EOF'
+{{ include ".chezmoitemplates/gnome-nautilus-dconf.ini" }}
+EOF
 {{ end -}}
