@@ -2,6 +2,8 @@
 	name = Michel Pauwels
 	# No global email on purpose: it is chosen per remote host below.
 	# Repos matching neither host must set user.email locally.
+	# Note: SCP-style remotes (git@host:path) are not matched by hasconfig on
+	# git 2.43; use https:// or ssh:// remotes.
 
 [includeIf "hasconfig:remote.*.url:https://github.com/**"]
 	path = ~/.config/git/github.gitconfig

@@ -31,6 +31,11 @@ through conditional includes: GitHub remotes use the noreply address and Azure
 DevOps remotes use the work address. A repo that matches neither host needs
 `git config user.email` set locally before it can commit.
 
+Known limitation: git (verified on 2.43) does not match SCP-style SSH remotes
+such as `git@github.com:owner/repo.git` against `hasconfig` patterns. Clone
+with `https://github.com/...` or `ssh://git@github.com/...` instead, or set
+the email locally in such repos.
+
 ## Notes
 
 - Ghostty is installed by a `run_once_` script and is not updated by chezmoi.
