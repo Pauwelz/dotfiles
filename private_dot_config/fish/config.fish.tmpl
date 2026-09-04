@@ -1,0 +1,6 @@
+if status is-interactive
+    starship init fish | source
+end
+{{ if .desktop -}}
+set -gx SSH_AUTH_SOCK {{ .chezmoi.homeDir }}/snap/bitwarden/current/.bitwarden-ssh-agent.sock
+{{ end -}}
