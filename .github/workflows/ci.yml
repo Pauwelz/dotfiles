@@ -18,10 +18,10 @@ jobs:
           sudo apt-get install -y shellcheck
 
       - name: Validate config template
-        run: chezmoi execute-template --init --promptBool desktop=true < .chezmoi.toml.tmpl
+        run: chezmoi execute-template --init --promptBool "Is this a GNOME desktop (install GUI apps and fonts and apply dconf settings)=true" < .chezmoi.toml.tmpl
 
       - name: Initialise chezmoi from this checkout
-        run: chezmoi init --source="$PWD" --promptBool desktop=true
+        run: chezmoi init --source="$PWD" --promptBool "Is this a GNOME desktop (install GUI apps and fonts and apply dconf settings)=true"
 
       - name: chezmoi doctor
         run: chezmoi doctor
@@ -44,6 +44,6 @@ jobs:
         run: |
           chezmoi managed | tee /tmp/managed.txt
           ! grep -qE '^(README.md|\.github)' /tmp/managed.txt
-          chezmoi init --source="$PWD" --promptBool desktop=false --force
+          chezmoi init --source="$PWD" --promptBool "Is this a GNOME desktop (install GUI apps and fonts and apply dconf settings)=false" --force
           echo "== managed with desktop=false"
           chezmoi managed
