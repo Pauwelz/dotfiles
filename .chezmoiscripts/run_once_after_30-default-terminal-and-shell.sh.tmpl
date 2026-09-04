@@ -1,0 +1,35 @@
+{{ if and (eq .chezmoi.os "linux") .desktop -}}
+#!/bin/bash
+set -euo pipefail
+
+GHOSTTY_BIN="$(command -v ghostty || true)"
+FISH_BIN="$(command -v fish || true)"
+
+if [ -z "$GHOSTTY_BIN" ] || [ -z "$FISH_BIN" ]; then
+  echo "ghostty or fish not on PATH, skipping default terminal/shell setup." >&2
+  exit 0
+fi
+
+sudo -v
+
+# --- Register Ghostty as x-terminal-emulator (Debian/Ubuntu alternatives system) ---
+sudo update-alternatives --install /usr/bin/x-terminal-emulator x-terminal-emulator "$GHOSTTY_BIN" 50
+sudo update-alternatives --set x-terminal-emulator "$GHOSTTY_BIN"
+
+# --- Point Ubuntu's Ctrl+Alt+T ("Launch Terminal") at Ghostty ---
+if command -v gsettings > /dev/null && [ -n "${DBUS_SESSION_BUS_ADDRESS:-}" ]; then
+  gsettings set org.gnome.desktop.default-applications.terminal exec "$GHOSTTY_BIN"
+  gsettings set org.gnome.desktop.default-applications.terminal exec-arg "-e"
+else
+  echo "No GNOME session bus, skipping gsettings default terminal." >&2
+fi
+
+# --- Make fish the login shell ---
+CURRENT_SHELL="$(getent passwd "$(whoami)" | cut -d: -f7)"
+if [ "$CURRENT_SHELL" != "$FISH_BIN" ]; then
+  echo "Setting login shell to $FISH_BIN (was: $CURRENT_SHELL)"
+  sudo usermod --shell "$FISH_BIN" "$(whoami)"
+else
+  echo "Login shell already fish."
+fi
+{{ end -}}

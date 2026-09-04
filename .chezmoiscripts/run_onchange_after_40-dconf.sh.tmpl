@@ -1,0 +1,17 @@
+{{ if and (eq .chezmoi.os "linux") .desktop -}}
+#!/bin/bash
+set -euo pipefail
+
+if ! command -v dconf > /dev/null || [ -z "${DBUS_SESSION_BUS_ADDRESS:-}" ]; then
+  echo "dconf missing or no GNOME session bus, skipping dconf settings." >&2
+  exit 0
+fi
+
+dconf load /org/gnome/shell/ <<'EOF_SHELL'
+{{ include ".chezmoitemplates/gnome-shell-dconf.ini" -}}
+EOF_SHELL
+
+dconf load /org/gnome/nautilus/ <<'EOF_NAUTILUS'
+{{ include ".chezmoitemplates/gnome-nautilus-dconf.ini" -}}
+EOF_NAUTILUS
+{{ end -}}
