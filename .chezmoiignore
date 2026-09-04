@@ -1,0 +1,6 @@
+README.md
+.github/
+{{ if not .desktop }}
+.config/ghostty
+.local/share/fonts
+{{ end }}
