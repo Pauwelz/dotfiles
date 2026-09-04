@@ -4,4 +4,3 @@ packages:
       - 'git'
     snap:
       - 'bw'
-      - 'code'
