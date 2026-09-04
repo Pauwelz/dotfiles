@@ -30,6 +30,6 @@ pipx ensurepath
 pipx install {{ . | quote }} --system-site-packages
 {{ end -}}
 {{ range .packages.linux.gext -}}
-gext install {{ . | quote }}
+~/.local/bin/gext install {{ . | quote }}
 {{ end -}}
 {{ end -}}
