@@ -1,0 +1,3 @@
+{{- $desktop := promptBoolOnce . "desktop" "Is this a GNOME desktop (install GUI apps, fonts and dconf settings)" -}}
+[data]
+    desktop = {{ $desktop }}
