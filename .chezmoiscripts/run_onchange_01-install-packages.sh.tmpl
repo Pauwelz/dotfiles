@@ -26,6 +26,7 @@ sudo apt-get install -y {{ .package | quote }}
 sudo snap install {{ . | quote }}
 {{ end -}}
 {{ range .packages.linux.pipx -}}
+pipx ensurepath
 pipx install {{ . | quote }} --system-site-packages
 {{ end -}}
 {{ range .packages.linux.gext -}}
