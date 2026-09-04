@@ -31,5 +31,6 @@ pipx install {{ . | quote }} --system-site-packages
 {{ end -}}
 {{ range .packages.linux.gext -}}
 ~/.local/bin/gext install {{ . | quote }}
+~/.local/bin/gext enable {{ . | quote }}
 {{ end -}}
 {{ end -}}
