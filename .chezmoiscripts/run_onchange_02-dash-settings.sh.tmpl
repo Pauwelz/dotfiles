@@ -1,0 +1,8 @@
+{{ if eq .chezmoi.os "linux" -}}
+#!/bin/bash
+set -eufo pipefail
+
+dconf load /org/gnome/shell/ <<'EOF'
+{{ include ".chezmoitemplates/gnome-shell-dconf.ini" }}
+EOF
+{{ end -}}

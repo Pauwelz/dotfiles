@@ -1,0 +1,34 @@
+{{ if eq .chezmoi.os "linux" -}}
+#!/bin/bash
+set -eufo pipefail
+
+sudo -v
+
+# Prerequisites for adding third-party repos (curl to fetch keys, gnupg for dearmor)
+sudo apt-get update
+sudo apt-get install -y curl gnupg
+
+{{ range .packages.linux.apt_repos -}}
+# --- {{ .name }} ---
+curl -fsSL {{ .key_url | quote }} | sudo gpg --dearmor --yes -o /usr/share/keyrings/{{ .name }}-archive-keyring.gpg
+echo {{ .repo_line | quote }} | sudo tee /etc/apt/sources.list.d/{{ .name }}.list > /dev/null
+{{ end -}}
+
+sudo apt-get update
+
+{{ range .packages.linux.apt -}}
+sudo apt-get install -y {{ . | quote }}
+{{ end -}}
+{{ range .packages.linux.apt_repos -}}
+sudo apt-get install -y {{ .package | quote }}
+{{ end -}}
+{{ range .packages.linux.snap -}}
+sudo snap install {{ . | quote }}
+{{ end -}}
+{{ range .packages.linux.pipx -}}
+pipx install {{ . | quote }} --system-site-packages
+{{ end -}}
+{{ range .packages.linux.gext -}}
+gext install {{ . | quote }}
+{{ end -}}
+{{ end -}}
