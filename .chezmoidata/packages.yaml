@@ -1,28 +1,40 @@
+fonts:
+  # Pinned Nerd Fonts release; bump to update FiraCode Nerd Font.
+  nerd_fonts_version: "v3.5.1"
+
 packages:
   linux:
     apt_repos:
-      - name: 'vscode'
-        key_url: 'https://packages.microsoft.com/keys/microsoft.asc'
-        repo_line: 'deb [arch=amd64,arm64 signed-by=/usr/share/keyrings/vscode-archive-keyring.gpg] https://packages.microsoft.com/repos/code stable main'
-        package: 'code'
-      - name: 'google-chrome'
-        key_url: 'https://dl.google.com/linux/linux_signing_key.pub'
-        repo_line: 'deb [arch=amd64 signed-by=/usr/share/keyrings/google-chrome-archive-keyring.gpg] https://dl.google.com/linux/chrome/deb/ stable main'
-        package: 'google-chrome-stable'
-      - name: 'claude-desktop'
-        key_url: 'https://downloads.claude.ai/claude-desktop/key.asc'
-        repo_line: 'deb [arch=amd64,arm64 signed-by=/usr/share/keyrings/claude-desktop-archive-keyring.gpg] https://downloads.claude.ai/claude-desktop/apt/stable stable main'
-        package: 'claude-desktop'
+      - name: vscode
+        key_url: https://packages.microsoft.com/keys/microsoft.asc
+        uri: https://packages.microsoft.com/repos/code
+        suites: stable
+        components: main
+        architectures: amd64 arm64
+        package: code
+      - name: google-chrome
+        key_url: https://dl.google.com/linux/linux_signing_key.pub
+        uri: https://dl.google.com/linux/chrome/deb/
+        suites: stable
+        components: main
+        architectures: amd64
+        package: google-chrome-stable
+      - name: claude-desktop
+        key_url: https://downloads.claude.ai/claude-desktop/key.asc
+        uri: https://downloads.claude.ai/claude-desktop/apt/stable
+        suites: stable
+        components: main
+        architectures: amd64 arm64
+        package: claude-desktop
     apt:
-      - 'git'
-      - 'pipx'
-      - 'ghostty'
-      - 'fish'
-      - 'starship'
+      - git
+      - pipx
+      - fish
+      - starship
     snap:
-      - 'bw'
-      - 'bitwarden'
+      - bw
+      - bitwarden
     pipx:
-      - 'gnome-extensions-cli'
+      - gnome-extensions-cli
     gext:
-      - 'dash-to-panel@jderose9.github.com'
+      - dash-to-panel@jderose9.github.com
