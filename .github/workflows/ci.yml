@@ -1,0 +1,49 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install chezmoi and shellcheck
+        run: |
+          sh -c "$(curl -fsLS get.chezmoi.io)" -- -b "$HOME/.local/bin"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          sudo apt-get update
+          sudo apt-get install -y shellcheck
+
+      - name: Validate config template
+        run: chezmoi execute-template --init --promptBool desktop=true < .chezmoi.toml.tmpl
+
+      - name: Initialise chezmoi from this checkout
+        run: chezmoi init --source="$PWD" --promptBool desktop=true
+
+      - name: chezmoi doctor
+        run: chezmoi doctor
+
+      - name: Dry-run apply (files and externals, no scripts)
+        run: chezmoi apply --dry-run --verbose --exclude=scripts
+
+      - name: Lint rendered scripts
+        run: |
+          for f in .chezmoiscripts/*.tmpl; do
+            echo "== $f"
+            chezmoi execute-template < "$f" | tee /tmp/rendered.sh | shellcheck -s bash -
+            bash -n /tmp/rendered.sh
+          done
+
+      - name: Show rendered fish config
+        run: chezmoi cat ~/.config/fish/config.fish
+
+      - name: Check ignore rules and headless rendering
+        run: |
+          chezmoi managed | tee /tmp/managed.txt
+          ! grep -qE '^(README.md|\.github)' /tmp/managed.txt
+          chezmoi init --source="$PWD" --promptBool desktop=false --force
+          echo "== managed with desktop=false"
+          chezmoi managed
