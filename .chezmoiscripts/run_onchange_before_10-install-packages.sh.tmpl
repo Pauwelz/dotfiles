@@ -21,8 +21,7 @@ Signed-By: /usr/share/keyrings/{{ .name }}-archive-keyring.gpg
 SOURCES
 {{ end }}
 sudo apt-get update
-sudo apt-get install -y \
-{{- range .packages.linux.apt }} {{ . | quote }}{{ end }}
+sudo apt-get install -y{{ range .packages.linux.apt }} {{ . | quote }}{{ end }}
 {{- range .packages.linux.apt_repos }} {{ .package | quote }}{{ end }}
 
 if command -v snap > /dev/null; then

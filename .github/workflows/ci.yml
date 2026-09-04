@@ -4,6 +4,9 @@ on:
   push:
   pull_request:
 
+env:
+  DESKTOP_PROMPT: "Is this a GNOME desktop (install GUI apps and fonts and apply dconf settings)"
+
 jobs:
   check:
     runs-on: ubuntu-latest
@@ -17,11 +20,18 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y shellcheck
 
-      - name: Validate config template
-        run: chezmoi execute-template --init --promptBool "Is this a GNOME desktop (install GUI apps and fonts and apply dconf settings)=true" < .chezmoi.toml.tmpl
+      - name: Use this checkout as the chezmoi source directory
+        run: |
+          mkdir -p "$HOME/.local/share"
+          ln -s "$GITHUB_WORKSPACE" "$HOME/.local/share/chezmoi"
 
-      - name: Initialise chezmoi from this checkout
-        run: chezmoi init --source="$PWD" --promptBool "Is this a GNOME desktop (install GUI apps and fonts and apply dconf settings)=true"
+      - name: Validate config template
+        run: chezmoi execute-template --init --promptBool "$DESKTOP_PROMPT=true" < .chezmoi.toml.tmpl
+
+      - name: Initialise as a desktop machine
+        run: |
+          chezmoi init --promptBool "$DESKTOP_PROMPT=true"
+          cat "$HOME/.config/chezmoi/chezmoi.toml"
 
       - name: chezmoi doctor
         run: chezmoi doctor
@@ -33,17 +43,26 @@ jobs:
         run: |
           for f in .chezmoiscripts/*.tmpl; do
             echo "== $f"
-            chezmoi execute-template < "$f" | tee /tmp/rendered.sh | shellcheck -s bash -
+            chezmoi execute-template < "$f" > /tmp/rendered.sh
+            shellcheck -s bash /tmp/rendered.sh
             bash -n /tmp/rendered.sh
           done
 
       - name: Show rendered fish config
         run: chezmoi cat ~/.config/fish/config.fish
 
-      - name: Check ignore rules and headless rendering
+      - name: Check ignore rules
         run: |
           chezmoi managed | tee /tmp/managed.txt
           ! grep -qE '^(README.md|\.github)' /tmp/managed.txt
-          chezmoi init --source="$PWD" --promptBool "Is this a GNOME desktop (install GUI apps and fonts and apply dconf settings)=false" --force
-          echo "== managed with desktop=false"
-          chezmoi managed
+
+      - name: Re-initialise as a headless machine
+        run: |
+          chezmoi init --prompt --promptBool "$DESKTOP_PROMPT=false"
+          cat "$HOME/.config/chezmoi/chezmoi.toml"
+          chezmoi managed | tee /tmp/managed.txt
+          ! grep -qE '^\.config/ghostty|^\.local/share/fonts' /tmp/managed.txt
+          for f in .chezmoiscripts/*.tmpl; do
+            test "$(chezmoi execute-template < "$f" | wc -c)" -eq 0
+          done
+          chezmoi apply --dry-run --verbose
