@@ -1,3 +1,18 @@
 [user]
 	name = Michel Pauwels
-	email = Pauwelz@users.noreply.github.com
+	# No global email on purpose: it is chosen per remote host below.
+	# Repos matching neither host must set user.email locally.
+
+[includeIf "hasconfig:remote.*.url:https://github.com/**"]
+	path = ~/.config/git/github.gitconfig
+[includeIf "hasconfig:remote.*.url:git@github.com:**"]
+	path = ~/.config/git/github.gitconfig
+[includeIf "hasconfig:remote.*.url:ssh://git@github.com/**"]
+	path = ~/.config/git/github.gitconfig
+
+[includeIf "hasconfig:remote.*.url:https://*dev.azure.com/**"]
+	path = ~/.config/git/devops.gitconfig
+[includeIf "hasconfig:remote.*.url:git@ssh.dev.azure.com:**"]
+	path = ~/.config/git/devops.gitconfig
+[includeIf "hasconfig:remote.*.url:https://*.visualstudio.com/**"]
+	path = ~/.config/git/devops.gitconfig
