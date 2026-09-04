@@ -1,0 +1,7 @@
+packages:
+  linux:
+    apt:
+      - 'git'
+    snap:
+      - 'bw'
+      - 'code'
