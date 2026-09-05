@@ -7,7 +7,3 @@ README.md
 {{ if not .devtools }}
 .config/k3d
 {{ end }}
-{{ if not (lookPath "bw") }}
-# No Bitwarden CLI: skip the include that reads the work email from the vault
-.config/git/devops.gitconfig
-{{ end }}

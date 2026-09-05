@@ -2,12 +2,14 @@
        Keep commas out of the prompt texts: `--promptBool` splits on them. */ -}}
 {{- $desktop := promptBoolOnce . "desktop" "Is this a GNOME desktop (install GUI apps and fonts and apply dconf settings)" -}}
 {{- $devtools := promptBoolOnce . "devtools" "Is this a development machine (install Docker plus .NET/Kubernetes/Azure tooling and create a k3d cluster)" -}}
+{{- $workEmail := promptStringOnce . "workEmail" "Work email (used for Azure DevOps repos)" -}}
 [data]
     desktop = {{ $desktop }}
     devtools = {{ $devtools }}
+    workEmail = {{ $workEmail | quote }}
 
 # Installs and logs in to the Bitwarden CLI before chezmoi reads the source
-# state, so templates can call bitwardenFields. See
+# state, so the SSH-key script can list the vault. See
 # https://www.chezmoi.io/user-guide/advanced/install-your-password-manager-on-init/
 [hooks.read-source-state.pre]
     command = {{ joinPath .chezmoi.sourceDir ".install-password-manager.sh" | quote }}

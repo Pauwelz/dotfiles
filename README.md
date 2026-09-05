@@ -8,13 +8,14 @@ Personal [chezmoi](https://www.chezmoi.io/) configuration for Ubuntu.
 sh -c "$(curl -fsLS get.chezmoi.io)" -- init --apply pauwelz
 ```
 
-On first init chezmoi asks two questions:
+On first init chezmoi asks three questions:
 
 - **Is this a GNOME desktop?** Answer `y` on the laptop: GUI apps, fonts and
   dconf settings are applied. Answer `n` on servers or WSL.
 - **Is this a development machine?** Answer `y` to get Docker, .NET, the
   Kubernetes and Azure tooling and a local k3d cluster. A headless devbox
   answers `n` / `y`; the laptop can answer `y` to both.
+- **Work email?** Used as the git author email for Azure DevOps remotes.
 
 Run `chezmoi init --prompt` to re-ask. After pulling a change that adds a new
 question, run `chezmoi init` once; it asks only the unanswered one.
@@ -22,10 +23,9 @@ question, run `chezmoi init` once; it asks only the unanswered one.
 Before reading the source state, chezmoi runs `.install-password-manager.sh`
 (a `read-source-state.pre` hook). It installs the Bitwarden CLI via snap if
 missing, points it at the EU cloud (`vault.bitwarden.eu`) and runs `bw login`
-once if not logged in. The work email is then read
-from the Bitwarden identity item `Identiteitskaart` (custom field `Work Email`)
-every time the DevOps git include is rendered. chezmoi unlocks the vault
-itself, prompting for the master password, unless `BW_SESSION` is exported:
+once if not logged in. The vault is only used by the SSH-key script (see
+[SSH](#ssh)), which prompts for the master password on every apply unless
+`BW_SESSION` is exported:
 
 ```fish
 set -gx BW_SESSION (bw unlock --raw)
@@ -39,6 +39,8 @@ chezmoi apply
   manual: run `sudo tailscale up` once (chezmoi prints a reminder on every
   apply until the node is connected)
 - Puts `~/.local/bin` on the fish PATH
+- Writes `~/.ssh/config` and syncs the SSH public keys from Bitwarden (see
+  [SSH](#ssh))
 
 ## What a desktop install does
 
@@ -47,8 +49,10 @@ chezmoi apply
 - Installs Ghostty from [ghostty-ubuntu](https://github.com/mkasberg/ghostty-ubuntu)
   and registers it as the default terminal
 - Installs FiraCode Nerd Font (pinned in `.chezmoidata/packages.yaml`)
-- Installs and enables the dash-to-panel GNOME extension and applies the
-  curated dconf settings from `.chezmoitemplates/`
+- Installs and enables the dash-to-panel and Tailscale quick-settings GNOME
+  extensions and applies the curated dconf settings from `.chezmoitemplates/`.
+  The current user is made the Tailscale operator so the extension can toggle
+  the connection without root
 - Points `SSH_AUTH_SOCK` at the Bitwarden snap SSH agent
 
 ## What a devtools install does
@@ -77,13 +81,30 @@ k3d image import myapp:dev -c dev
 kubectl rollout restart deploy/myapp
 ```
 
+## SSH
+
+`~/.ssh/config` sets `IdentitiesOnly`, `HashKnownHosts` and (on desktops)
+`IdentityAgent` pointing at the Bitwarden SSH agent, and includes
+`~/.ssh/config.d/*.conf`. chezmoi manages `github.conf` (key `id_ed25519`)
+and `azure-devops.conf` (key `id_rsa`, the only type Azure DevOps accepts) in
+that directory; drop other host entries there yourself, they are left alone.
+
+Private keys never touch the disk. On every apply the SSH-key script lists
+the SSH-key items in the Bitwarden vault and writes each public key to
+`~/.ssh/<item name>.pub` (name lowercased, other characters replaced by `-`),
+which is what the `IdentityFile` lines above point at so ssh offers the right
+agent key. The same keys are kept in a `# >>> bitwarden ssh keys >>>` block
+of `~/.ssh/authorized_keys`; lines outside the block are preserved. Without
+`bw`, or without a terminal and `BW_SESSION`, the sync is skipped with a
+message.
+
 ## Git identity
 
 `~/.gitconfig` sets only the user name. The email is chosen per remote host
 through conditional includes: GitHub remotes use the noreply address and Azure
-DevOps remotes use the work address read from Bitwarden. A repo that matches neither host needs
-`git config user.email` set locally before it can commit. On a machine without
-the Bitwarden CLI the DevOps include is skipped entirely.
+DevOps remotes use the work email answered on `chezmoi init`. A repo that
+matches neither host needs `git config user.email` set locally before it can
+commit.
 
 Known limitation: git (verified on 2.43) does not match SCP-style SSH remotes
 such as `git@github.com:owner/repo.git` against `hasconfig` patterns. Clone

@@ -1,0 +1,10 @@
+# Host-specific entries live in config.d/; chezmoi manages github.conf and
+# azure-devops.conf there, anything else is local to this machine.
+Include ~/.ssh/config.d/*.conf
+
+Host *
+    IdentitiesOnly yes
+    HashKnownHosts yes
+{{- if .desktop }}
+    IdentityAgent {{ .chezmoi.homeDir }}/snap/bitwarden/current/.bitwarden-ssh-agent.sock
+{{- end }}
