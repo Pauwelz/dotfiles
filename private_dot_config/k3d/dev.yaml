@@ -1,0 +1,27 @@
+# k3d cluster definition used by run_once_after_70-k3d-cluster.
+# Manual equivalent:
+#   k3d cluster create dev --registry-use k3d-local:5000 --agents 2 \
+#     --port 8080:80@loadbalancer --port 8443:443@loadbalancer \
+#     --k3s-arg "--disable=metrics-server@server:0"
+apiVersion: k3d.io/v1alpha5
+kind: Simple
+metadata:
+  name: dev
+servers: 1
+agents: 2
+ports:
+  - port: 8080:80
+    nodeFilters:
+      - loadbalancer
+  - port: 8443:443
+    nodeFilters:
+      - loadbalancer
+registries:
+  use:
+    - k3d-local:5000
+options:
+  k3s:
+    extraArgs:
+      - arg: --disable=metrics-server
+        nodeFilters:
+          - server:0

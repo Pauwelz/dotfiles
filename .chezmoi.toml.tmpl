@@ -1,7 +1,10 @@
-{{- /* Answered once on `chezmoi init`; re-ask with `chezmoi init --prompt`. */ -}}
+{{- /* Answered once on `chezmoi init`; re-ask with `chezmoi init --prompt`.
+       Keep commas out of the prompt texts: `--promptBool` splits on them. */ -}}
 {{- $desktop := promptBoolOnce . "desktop" "Is this a GNOME desktop (install GUI apps and fonts and apply dconf settings)" -}}
+{{- $devtools := promptBoolOnce . "devtools" "Is this a development machine (install Docker plus .NET/Kubernetes/Azure tooling and create a k3d cluster)" -}}
 [data]
     desktop = {{ $desktop }}
+    devtools = {{ $devtools }}
 
 # Installs and logs in to the Bitwarden CLI before chezmoi reads the source
 # state, so templates can call bitwardenFields. See

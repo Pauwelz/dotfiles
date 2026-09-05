@@ -1,0 +1,22 @@
+{{ if eq .chezmoi.os "linux" -}}
+#!/bin/bash
+# Runs on every apply and stays silent once Tailscale is connected. Logging in
+# is deliberately manual: no pre-auth keys on disk.
+set -euo pipefail
+
+if ! command -v tailscale > /dev/null; then
+  exit 0
+fi
+if ! command -v systemctl > /dev/null || ! systemctl is-system-running --quiet 2> /dev/null; then
+  # No systemd (WSL): tailscaled is not running as a service
+  exit 0
+fi
+
+if ! tailscale status --json 2> /dev/null | grep -q '"BackendState": *"Running"'; then
+  cat >&2 <<'MSG'
+Tailscale is installed but not connected. Run:
+  sudo tailscale up
+On a VM whose LAN is also advertised as a subnet route, add --accept-routes=false.
+MSG
+fi
+{{ end -}}

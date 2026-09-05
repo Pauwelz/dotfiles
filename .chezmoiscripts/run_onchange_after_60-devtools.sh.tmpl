@@ -1,0 +1,37 @@
+{{ if and (eq .chezmoi.os "linux") .devtools -}}
+#!/bin/bash
+# Re-runs when the pinned tool versions change so completions stay current:
+# tools {{ .tools | toJson }}
+set -euo pipefail
+
+# after-scripts inherit the caller's PATH, which lacks ~/.local/bin on a fresh machine
+export PATH="$HOME/.local/bin:$HOME/.dotnet/tools:$PATH"
+export DOTNET_CLI_TELEMETRY_OPTOUT=1 DOTNET_NOLOGO=1
+
+sudo -v
+
+# --- Docker: service and group ---
+if command -v docker > /dev/null && command -v systemctl > /dev/null; then
+  sudo systemctl enable --now docker
+  if ! id -nG "$(whoami)" | tr ' ' '\n' | grep -qx docker; then
+    sudo usermod -aG docker "$(whoami)"
+    echo "Added $(whoami) to the docker group; log out and back in for it to take effect." >&2
+  fi
+else
+  echo "docker or systemd missing, skipping docker service setup." >&2
+fi
+
+# --- Azure Bicep ---
+if command -v az > /dev/null; then
+  az bicep version > /dev/null 2>&1 || az bicep install || echo "az bicep install failed (offline?), continuing." >&2
+fi
+
+# --- fish completions for the release binaries ---
+COMPLETIONS="{{ .chezmoi.homeDir }}/.config/fish/completions"
+mkdir -p "$COMPLETIONS"
+for tool in kubectl helm k3d tilt; do
+  if command -v "$tool" > /dev/null; then
+    "$tool" completion fish > "$COMPLETIONS/$tool.fish"
+  fi
+done
+{{ end -}}

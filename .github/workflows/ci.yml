@@ -6,6 +6,7 @@ on:
 
 env:
   DESKTOP_PROMPT: "Is this a GNOME desktop (install GUI apps and fonts and apply dconf settings)"
+  DEVTOOLS_PROMPT: "Is this a development machine (install Docker plus .NET/Kubernetes/Azure tooling and create a k3d cluster)"
 
 jobs:
   check:
@@ -25,6 +26,12 @@ jobs:
           mkdir -p "$HOME/.local/share"
           ln -s "$GITHUB_WORKSPACE" "$HOME/.local/share/chezmoi"
 
+      - name: Cache downloaded externals
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/chezmoi
+          key: chezmoi-externals-${{ hashFiles('.chezmoidata/packages.yaml') }}
+
       - name: Stub the Bitwarden CLI
         # A fake bw so the hook is a no-op and bitwardenFields can be exercised
         run: |
@@ -38,12 +45,18 @@ jobs:
           EOF
           chmod +x "$HOME/.local/bin/bw"
 
-      - name: Validate config template
-        run: chezmoi execute-template --init --promptBool "$DESKTOP_PROMPT=true" < .chezmoi.toml.tmpl
-
-      - name: Initialise as a desktop machine
+      - name: Lint hook and helper scripts
         run: |
-          chezmoi init --promptBool "$DESKTOP_PROMPT=true"
+          shellcheck .install-password-manager.sh .github/scripts/lint-scripts.sh
+          bash -n .install-password-manager.sh .github/scripts/lint-scripts.sh
+
+      - name: Validate config template
+        run: chezmoi execute-template --init --promptBool "$DESKTOP_PROMPT=true" --promptBool "$DEVTOOLS_PROMPT=true" < .chezmoi.toml.tmpl
+
+      # --- Scenario 1: desktop + devtools ---------------------------------------
+      - name: Initialise as desktop + devtools
+        run: |
+          chezmoi init --prompt --promptBool "$DESKTOP_PROMPT=true" --promptBool "$DEVTOOLS_PROMPT=true"
           cat "$HOME/.config/chezmoi/chezmoi.toml"
 
       - name: chezmoi doctor
@@ -52,36 +65,68 @@ jobs:
       - name: Dry-run apply (files and externals, no scripts)
         run: chezmoi apply --dry-run --verbose --exclude=scripts
 
-      - name: Lint hook script
-        run: shellcheck .install-password-manager.sh && bash -n .install-password-manager.sh
-
       - name: Check the work email is read through bitwardenFields
         run: chezmoi cat ~/.config/git/devops.gitconfig | grep -q 'email = ci@example.invalid'
 
-      - name: Lint rendered scripts
+      - name: Lint rendered scripts (desktop + devtools)
+        run: .github/scripts/lint-scripts.sh
+
+      - name: Check package selection (desktop + devtools)
         run: |
-          for f in .chezmoiscripts/*.tmpl; do
-            echo "== $f"
-            chezmoi execute-template < "$f" > /tmp/rendered.sh
-            shellcheck -s bash /tmp/rendered.sh
-            bash -n /tmp/rendered.sh
-          done
+          chezmoi execute-template < .chezmoiscripts/run_onchange_before_10-install-packages.sh.tmpl > /tmp/pkgs.sh
+          grep -q 'docker-ce' /tmp/pkgs.sh
+          grep -q 'google-chrome' /tmp/pkgs.sh
+          grep -q 'tailscale' /tmp/pkgs.sh
+          ! grep -q '{codename}' /tmp/pkgs.sh
+          test "$(grep -c 'microsoft-archive-keyring.gpg' /tmp/pkgs.sh)" -ge 2
 
       - name: Show rendered fish config
         run: chezmoi cat ~/.config/fish/config.fish
 
-      - name: Check ignore rules
+      - name: Check managed files (desktop + devtools)
         run: |
           chezmoi managed | tee /tmp/managed.txt
           ! grep -qE '^(README.md|\.github)' /tmp/managed.txt
+          grep -q '^\.local/bin/kubectl$' /tmp/managed.txt
+          grep -q '^\.config/k3d/dev.yaml$' /tmp/managed.txt
 
-      - name: Re-initialise as a headless machine
+      # --- Scenario 2: devtools only (headless devbox) --------------------------
+      - name: Re-initialise as devtools only
         run: |
-          chezmoi init --prompt --promptBool "$DESKTOP_PROMPT=false"
+          chezmoi init --prompt --promptBool "$DESKTOP_PROMPT=false" --promptBool "$DEVTOOLS_PROMPT=true"
           cat "$HOME/.config/chezmoi/chezmoi.toml"
+
+      - name: Lint rendered scripts (devtools only)
+        run: .github/scripts/lint-scripts.sh 20 35 40 50
+
+      - name: Check package selection and managed files (devtools only)
+        run: |
+          chezmoi execute-template < .chezmoiscripts/run_onchange_before_10-install-packages.sh.tmpl > /tmp/pkgs.sh
+          grep -q 'docker-ce' /tmp/pkgs.sh
+          ! grep -q 'google-chrome' /tmp/pkgs.sh
+          ! grep -q 'snap install' /tmp/pkgs.sh
           chezmoi managed | tee /tmp/managed.txt
           ! grep -qE '^\.config/ghostty|^\.local/share/fonts' /tmp/managed.txt
-          for f in .chezmoiscripts/*.tmpl; do
-            test "$(chezmoi execute-template < "$f" | wc -c)" -eq 0
-          done
+          grep -q '^\.local/bin/k3d$' /tmp/managed.txt
+          chezmoi cat ~/.config/fish/config.fish | grep -q DOTNET_NOLOGO
+          chezmoi apply --dry-run --verbose --exclude=scripts
+
+      # --- Scenario 3: neither (server / WSL) -----------------------------------
+      - name: Re-initialise as a plain machine
+        run: |
+          chezmoi init --prompt --promptBool "$DESKTOP_PROMPT=false" --promptBool "$DEVTOOLS_PROMPT=false"
+          cat "$HOME/.config/chezmoi/chezmoi.toml"
+
+      - name: Lint rendered scripts (plain)
+        run: .github/scripts/lint-scripts.sh 20 35 40 50 60 70
+
+      - name: Check package selection and managed files (plain)
+        run: |
+          chezmoi execute-template < .chezmoiscripts/run_onchange_before_10-install-packages.sh.tmpl > /tmp/pkgs.sh
+          ! grep -q 'docker-ce' /tmp/pkgs.sh
+          ! grep -q 'google-chrome' /tmp/pkgs.sh
+          grep -q 'tailscale' /tmp/pkgs.sh
+          grep -q '"fish"' /tmp/pkgs.sh
+          chezmoi managed | tee /tmp/managed.txt
+          ! grep -qE '^\.config/ghostty|^\.local/share/fonts|^\.local/bin/|^\.config/k3d' /tmp/managed.txt
           chezmoi apply --dry-run --verbose

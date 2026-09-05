@@ -1,6 +1,6 @@
 # dotfiles
 
-Personal [chezmoi](https://www.chezmoi.io/) configuration for Ubuntu with GNOME.
+Personal [chezmoi](https://www.chezmoi.io/) configuration for Ubuntu.
 
 ## Install
 
@@ -8,9 +8,16 @@ Personal [chezmoi](https://www.chezmoi.io/) configuration for Ubuntu with GNOME.
 sh -c "$(curl -fsLS get.chezmoi.io)" -- init --apply pauwelz
 ```
 
-On first init chezmoi asks whether the machine is a GNOME desktop. Answer `n`
-on servers or WSL: only the git and fish configuration is applied there. Run
-`chezmoi init --prompt` to re-ask.
+On first init chezmoi asks two questions:
+
+- **Is this a GNOME desktop?** Answer `y` on the laptop: GUI apps, fonts and
+  dconf settings are applied. Answer `n` on servers or WSL.
+- **Is this a development machine?** Answer `y` to get Docker, .NET, the
+  Kubernetes and Azure tooling and a local k3d cluster. A headless devbox
+  answers `n` / `y`; the laptop can answer `y` to both.
+
+Run `chezmoi init --prompt` to re-ask. After pulling a change that adds a new
+question, run `chezmoi init` once; it asks only the unanswered one.
 
 Before reading the source state, chezmoi runs `.install-password-manager.sh`
 (a `read-source-state.pre` hook). It installs the Bitwarden CLI via snap if
@@ -25,17 +32,50 @@ set -gx BW_SESSION (bw unlock --raw)
 chezmoi apply
 ```
 
+## What every Linux install does
+
+- Installs git, fish, starship and curl from apt and makes fish the login shell
+- Adds the Tailscale apt repository and installs `tailscale`. Connecting is
+  manual: run `sudo tailscale up` once (chezmoi prints a reminder on every
+  apply until the node is connected)
+- Puts `~/.local/bin` on the fish PATH
+
 ## What a desktop install does
 
 - Adds the VS Code, Google Chrome and Claude Desktop apt repositories and
   installs the packages listed in `.chezmoidata/packages.yaml`
 - Installs Ghostty from [ghostty-ubuntu](https://github.com/mkasberg/ghostty-ubuntu)
   and registers it as the default terminal
-- Makes fish the login shell, with starship as the prompt
 - Installs FiraCode Nerd Font (pinned in `.chezmoidata/packages.yaml`)
 - Installs and enables the dash-to-panel GNOME extension and applies the
   curated dconf settings from `.chezmoitemplates/`
 - Points `SSH_AUTH_SOCK` at the Bitwarden snap SSH agent
+
+## What a devtools install does
+
+- Adds the Docker CE and Azure CLI apt repositories and installs
+  `docker-ce` (with buildx and compose), `azure-cli`, `dotnet-sdk-10.0`
+  (Ubuntu's package), `fzf`, `jq`, `unzip` and `gh`
+- Downloads pinned release binaries of kubectl, helm, k9s, kubectx, kubens,
+  k3d and tilt into `~/.local/bin` (versions under `tools:` in
+  `.chezmoidata/packages.yaml`; bump one and `chezmoi apply` to upgrade)
+- Enables the Docker service and adds you to the `docker` group. Log out and
+  back in afterwards
+- Installs Azure Bicep and generates fish completions for kubectl, helm, k3d
+  and tilt
+- Creates a k3d registry (`k3d-local:5000`, aliased in `/etc/hosts`) and a
+  `dev` cluster from `~/.config/k3d/dev.yaml`: two agents, ports 8080/8443 on
+  the load balancer, metrics-server disabled
+- Sets `DOTNET_CLI_TELEMETRY_OPTOUT`, `DOTNET_NOLOGO` and puts
+  `~/.dotnet/tools` on the fish PATH
+
+Typical .NET inner loop against the cluster:
+
+```sh
+dotnet publish -t:PublishContainer -p:ContainerRepository=myapp -p:ContainerImageTag=dev
+k3d image import myapp:dev -c dev
+kubectl rollout restart deploy/myapp
+```
 
 ## Git identity
 
@@ -52,8 +92,11 @@ the email locally in such repos.
 
 ## Notes
 
-- Ghostty is installed by a `run_once_` script and is not updated by chezmoi.
-  To reinstall or upgrade it, run
+- Ghostty and the k3d cluster are set up by `run_once_` scripts and are not
+  updated by chezmoi. To reinstall Ghostty or recreate the cluster (after
+  `k3d cluster delete dev`), run
   `chezmoi state delete-bucket --bucket=scriptState && chezmoi apply`.
 - To update the Nerd Font, bump `fonts.nerd_fonts_version` and run
   `chezmoi apply`.
+- The install script only runs again when `.chezmoidata/packages.yaml` or the
+  script itself changes. Force it with the same `delete-bucket` command.

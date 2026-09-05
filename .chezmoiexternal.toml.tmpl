@@ -5,3 +5,56 @@
     include = ["*.ttf"]
     refreshPeriod = "168h"
 {{ end -}}
+{{ if .devtools -}}
+{{- /* Release binaries pinned in .chezmoidata/packages.yaml (tools.*). Some projects
+       name assets amd64/arm64, others x86_64/arm64. */ -}}
+{{- $arch := .chezmoi.arch -}}
+{{- $archAlt := ternary "x86_64" "arm64" (eq $arch "amd64") -}}
+
+[".local/bin/kubectl"]
+    type = "file"
+    url = "https://dl.k8s.io/release/{{ .tools.kubectl }}/bin/linux/{{ $arch }}/kubectl"
+    executable = true
+    refreshPeriod = "168h"
+
+[".local/bin/helm"]
+    type = "archive-file"
+    url = "https://get.helm.sh/helm-{{ .tools.helm }}-linux-{{ $arch }}.tar.gz"
+    path = "linux-{{ $arch }}/helm"
+    executable = true
+    refreshPeriod = "168h"
+
+[".local/bin/k9s"]
+    type = "archive-file"
+    url = "https://github.com/derailed/k9s/releases/download/{{ .tools.k9s }}/k9s_Linux_{{ $arch }}.tar.gz"
+    path = "k9s"
+    executable = true
+    refreshPeriod = "168h"
+
+[".local/bin/kubectx"]
+    type = "archive-file"
+    url = "https://github.com/ahmetb/kubectx/releases/download/{{ .tools.kubectx }}/kubectx_{{ .tools.kubectx }}_linux_{{ $archAlt }}.tar.gz"
+    path = "kubectx"
+    executable = true
+    refreshPeriod = "168h"
+
+[".local/bin/kubens"]
+    type = "archive-file"
+    url = "https://github.com/ahmetb/kubectx/releases/download/{{ .tools.kubectx }}/kubens_{{ .tools.kubectx }}_linux_{{ $archAlt }}.tar.gz"
+    path = "kubens"
+    executable = true
+    refreshPeriod = "168h"
+
+[".local/bin/k3d"]
+    type = "file"
+    url = "https://github.com/k3d-io/k3d/releases/download/{{ .tools.k3d }}/k3d-linux-{{ $arch }}"
+    executable = true
+    refreshPeriod = "168h"
+
+[".local/bin/tilt"]
+    type = "archive-file"
+    url = "https://github.com/tilt-dev/tilt/releases/download/v{{ .tools.tilt }}/tilt.{{ .tools.tilt }}.linux.{{ $archAlt }}.tar.gz"
+    path = "tilt"
+    executable = true
+    refreshPeriod = "168h"
+{{ end -}}

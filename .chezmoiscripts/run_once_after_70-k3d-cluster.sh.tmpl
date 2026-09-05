@@ -1,0 +1,41 @@
+{{ if and (eq .chezmoi.os "linux") .devtools -}}
+#!/bin/bash
+# Creates the local registry and the `dev` cluster once. To recreate it, run
+# `k3d cluster delete dev`, then
+# `chezmoi state delete-bucket --bucket=scriptState && chezmoi apply`.
+set -euo pipefail
+
+export PATH="$HOME/.local/bin:$PATH"
+unset DOCKER_HOST
+
+if ! command -v docker > /dev/null || ! command -v k3d > /dev/null; then
+  echo "docker or k3d missing, skipping k3d cluster creation." >&2
+  exit 0
+fi
+
+# The docker group added in this same apply is not active in this session yet;
+# sg reads /etc/group directly, so it works without logging out.
+if docker info > /dev/null 2>&1; then
+  run() { "$@"; }
+elif id -nG "$(whoami)" | tr ' ' '\n' | grep -qx docker; then
+  run() { sg docker -c "$*"; }
+else
+  echo "Docker daemon not reachable, skipping k3d cluster creation. Re-run 'chezmoi apply' after logging back in." >&2
+  exit 0
+fi
+
+if ! run k3d registry list | grep -q '^k3d-local '; then
+  echo "Creating k3d registry k3d-local:5000"
+  run k3d registry create local --port 5000
+fi
+
+if ! run k3d cluster list | grep -q '^dev '; then
+  echo "Creating k3d cluster dev"
+  run k3d cluster create --config "{{ .chezmoi.homeDir }}/.config/k3d/dev.yaml"
+fi
+
+# Make image references resolve identically inside and outside the cluster
+if ! grep -qE '^[^#]*\sk3d-local(\s|$)' /etc/hosts; then
+  echo "127.0.0.1 k3d-local" | sudo tee -a /etc/hosts > /dev/null
+fi
+{{ end -}}

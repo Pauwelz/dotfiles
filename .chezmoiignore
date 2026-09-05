@@ -4,6 +4,9 @@ README.md
 .config/ghostty
 .local/share/fonts
 {{ end }}
+{{ if not .devtools }}
+.config/k3d
+{{ end }}
 {{ if not (lookPath "bw") }}
 # No Bitwarden CLI: skip the include that reads the work email from the vault
 .config/git/devops.gitconfig
