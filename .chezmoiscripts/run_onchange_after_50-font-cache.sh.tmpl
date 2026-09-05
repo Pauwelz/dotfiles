@@ -1,0 +1,14 @@
+{{ if and (eq .chezmoi.os "linux") .desktop -}}
+#!/bin/bash
+set -euo pipefail
+
+# nerd-fonts {{ .fonts.nerd_fonts_version }}
+# (the version above makes this script re-run whenever the font pin changes)
+
+if command -v fc-cache > /dev/null; then
+  fc-cache -f "$HOME/.local/share/fonts/FiraCodeNerdFont" > /dev/null
+  echo "Font cache refreshed."
+else
+  echo "fc-cache not available, skipping font cache refresh." >&2
+fi
+{{ end -}}

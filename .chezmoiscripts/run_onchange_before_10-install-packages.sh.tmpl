@@ -1,0 +1,64 @@
+{{ if and (eq .chezmoi.os "linux") .desktop -}}
+#!/bin/bash
+set -euo pipefail
+
+sudo -v
+
+# Prerequisites for adding third-party repos (curl to fetch keys, gnupg to dearmor them)
+sudo apt-get update
+sudo apt-get install -y curl gnupg
+
+{{ range .packages.linux.apt_repos -}}
+{{- /* key_format "asc" keeps the key armored; source_format "list" writes a one-line
+       file. Use both when a package registers its own source, so ours is identical. */ -}}
+{{- $keyFormat := get . "key_format" | default "gpg" -}}
+{{- $sourceFormat := get . "source_format" | default "sources" -}}
+{{- $keyring := printf "/usr/share/keyrings/%s-archive-keyring.%s" .name $keyFormat -}}
+# --- {{ .name }} ---
+{{ if eq $keyFormat "asc" -}}
+sudo curl -fsSLo {{ $keyring | quote }} {{ .key_url | quote }}
+{{ else -}}
+curl -fsSL {{ .key_url | quote }} | sudo gpg --dearmor --yes -o {{ $keyring | quote }}
+{{ end -}}
+{{ if eq $sourceFormat "list" -}}
+sudo rm -f "/etc/apt/sources.list.d/{{ .name }}.sources"
+echo "deb [arch={{ .architectures | replace " " "," }} signed-by={{ $keyring }}] {{ .uri }} {{ .suites }} {{ .components }}" | sudo tee "/etc/apt/sources.list.d/{{ .name }}.list" > /dev/null
+{{ else -}}
+sudo rm -f "/etc/apt/sources.list.d/{{ .name }}.list"
+sudo tee "/etc/apt/sources.list.d/{{ .name }}.sources" > /dev/null <<'SOURCES'
+Types: deb
+URIs: {{ .uri }}
+Suites: {{ .suites }}
+Components: {{ .components }}
+Architectures: {{ .architectures }}
+Signed-By: {{ $keyring }}
+SOURCES
+{{ end -}}
+{{ end }}
+sudo apt-get update
+sudo apt-get install -y{{ range .packages.linux.apt }} {{ . | quote }}{{ end }}
+{{- range .packages.linux.apt_repos }} {{ .package | quote }}{{ end }}
+
+if command -v snap > /dev/null; then
+{{- range .packages.linux.snap }}
+  sudo snap install {{ . | quote }}
+{{- end }}
+else
+  echo "snap not available, skipping snap packages." >&2
+fi
+
+pipx ensurepath
+{{ range .packages.linux.pipx -}}
+# --system-site-packages gives gnome-extensions-cli access to the distro PyGObject
+pipx install {{ . | quote }} --system-site-packages
+{{ end }}
+GEXT="{{ .chezmoi.homeDir }}/.local/bin/gext"
+if [ -n "${DBUS_SESSION_BUS_ADDRESS:-}" ] && [ -x "$GEXT" ]; then
+{{- range .packages.linux.gext }}
+  "$GEXT" install {{ . | quote }}
+  "$GEXT" enable {{ . | quote }}
+{{- end }}
+else
+  echo "No GNOME session bus or gext missing, skipping GNOME extensions." >&2
+fi
+{{ end -}}

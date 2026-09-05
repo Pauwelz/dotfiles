@@ -1,0 +1,21 @@
+{{ if and (eq .chezmoi.os "linux") .desktop -}}
+#!/bin/bash
+set -euo pipefail
+
+# Installs the latest Ghostty .deb from github.com/mkasberg/ghostty-ubuntu.
+# This is a run_once_ script: it never re-runs, so Ghostty is not updated by
+# chezmoi. To reinstall/upgrade, run:
+#   chezmoi state delete-bucket --bucket=scriptState && chezmoi apply
+
+if command -v ghostty > /dev/null; then
+  echo "Ghostty already installed at $(command -v ghostty), skipping."
+  exit 0
+fi
+
+sudo -v
+tmp_dir="$(mktemp -d)"
+trap 'rm -rf "$tmp_dir"' EXIT
+# apt fetches local .deb files as the unprivileged _apt user; mktemp -d is 0700
+chmod 755 "$tmp_dir"
+( cd "$tmp_dir" && /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/mkasberg/ghostty-ubuntu/HEAD/install.sh)" )
+{{ end -}}

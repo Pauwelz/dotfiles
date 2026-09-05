@@ -1,0 +1,87 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+env:
+  DESKTOP_PROMPT: "Is this a GNOME desktop (install GUI apps and fonts and apply dconf settings)"
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install chezmoi and shellcheck
+        run: |
+          sh -c "$(curl -fsLS get.chezmoi.io)" -- -b "$HOME/.local/bin"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          sudo apt-get update
+          sudo apt-get install -y shellcheck
+
+      - name: Use this checkout as the chezmoi source directory
+        run: |
+          mkdir -p "$HOME/.local/share"
+          ln -s "$GITHUB_WORKSPACE" "$HOME/.local/share/chezmoi"
+
+      - name: Stub the Bitwarden CLI
+        # A fake bw so the hook is a no-op and bitwardenFields can be exercised
+        run: |
+          cat > "$HOME/.local/bin/bw" <<'EOF'
+          #!/bin/bash
+          case "$1" in
+            status) echo '{"status":"unlocked"}' ;;
+            get) echo '{"fields":[{"name":"Work Email","value":"ci@example.invalid"}]}' ;;
+            *) echo "stub bw: unexpected args $*" >&2; exit 1 ;;
+          esac
+          EOF
+          chmod +x "$HOME/.local/bin/bw"
+
+      - name: Validate config template
+        run: chezmoi execute-template --init --promptBool "$DESKTOP_PROMPT=true" < .chezmoi.toml.tmpl
+
+      - name: Initialise as a desktop machine
+        run: |
+          chezmoi init --promptBool "$DESKTOP_PROMPT=true"
+          cat "$HOME/.config/chezmoi/chezmoi.toml"
+
+      - name: chezmoi doctor
+        run: chezmoi doctor
+
+      - name: Dry-run apply (files and externals, no scripts)
+        run: chezmoi apply --dry-run --verbose --exclude=scripts
+
+      - name: Lint hook script
+        run: shellcheck .install-password-manager.sh && bash -n .install-password-manager.sh
+
+      - name: Check the work email is read through bitwardenFields
+        run: chezmoi cat ~/.config/git/devops.gitconfig | grep -q 'email = ci@example.invalid'
+
+      - name: Lint rendered scripts
+        run: |
+          for f in .chezmoiscripts/*.tmpl; do
+            echo "== $f"
+            chezmoi execute-template < "$f" > /tmp/rendered.sh
+            shellcheck -s bash /tmp/rendered.sh
+            bash -n /tmp/rendered.sh
+          done
+
+      - name: Show rendered fish config
+        run: chezmoi cat ~/.config/fish/config.fish
+
+      - name: Check ignore rules
+        run: |
+          chezmoi managed | tee /tmp/managed.txt
+          ! grep -qE '^(README.md|\.github)' /tmp/managed.txt
+
+      - name: Re-initialise as a headless machine
+        run: |
+          chezmoi init --prompt --promptBool "$DESKTOP_PROMPT=false"
+          cat "$HOME/.config/chezmoi/chezmoi.toml"
+          chezmoi managed | tee /tmp/managed.txt
+          ! grep -qE '^\.config/ghostty|^\.local/share/fonts' /tmp/managed.txt
+          for f in .chezmoiscripts/*.tmpl; do
+            test "$(chezmoi execute-template < "$f" | wc -c)" -eq 0
+          done
+          chezmoi apply --dry-run --verbose

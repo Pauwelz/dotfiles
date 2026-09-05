@@ -1,0 +1,10 @@
+README.md
+.github/
+{{ if not .desktop }}
+.config/ghostty
+.local/share/fonts
+{{ end }}
+{{ if not (lookPath "bw") }}
+# No Bitwarden CLI: skip the include that reads the work email from the vault
+.config/git/devops.gitconfig
+{{ end }}

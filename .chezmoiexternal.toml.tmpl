@@ -1,0 +1,7 @@
+{{ if .desktop -}}
+[".local/share/fonts/FiraCodeNerdFont"]
+    type = "archive"
+    url = "https://github.com/ryanoasis/nerd-fonts/releases/download/{{ .fonts.nerd_fonts_version }}/FiraCode.zip"
+    include = ["*.ttf"]
+    refreshPeriod = "168h"
+{{ end -}}

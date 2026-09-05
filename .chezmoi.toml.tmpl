@@ -1,0 +1,10 @@
+{{- /* Answered once on `chezmoi init`; re-ask with `chezmoi init --prompt`. */ -}}
+{{- $desktop := promptBoolOnce . "desktop" "Is this a GNOME desktop (install GUI apps and fonts and apply dconf settings)" -}}
+[data]
+    desktop = {{ $desktop }}
+
+# Installs and logs in to the Bitwarden CLI before chezmoi reads the source
+# state, so templates can call bitwardenFields. See
+# https://www.chezmoi.io/user-guide/advanced/install-your-password-manager-on-init/
+[hooks.read-source-state.pre]
+    command = {{ joinPath .chezmoi.sourceDir ".install-password-manager.sh" | quote }}
