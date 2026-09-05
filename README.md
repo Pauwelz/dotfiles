@@ -14,7 +14,8 @@ on servers or WSL: only the git and fish configuration is applied there. Run
 
 Before reading the source state, chezmoi runs `.install-password-manager.sh`
 (a `read-source-state.pre` hook). It installs the Bitwarden CLI via snap if
-missing and runs `bw login` once if not logged in. The work email is then read
+missing, points it at the EU cloud (`vault.bitwarden.eu`) and runs `bw login`
+once if not logged in. The work email is then read
 from the Bitwarden identity item `Identiteitskaart` (custom field `Work Email`)
 every time the DevOps git include is rendered. chezmoi unlocks the vault
 itself, prompting for the master password, unless `BW_SESSION` is exported:
