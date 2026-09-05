@@ -13,25 +13,29 @@ if ! command -v docker > /dev/null || ! command -v k3d > /dev/null; then
   exit 0
 fi
 
-# The docker group added in this same apply is not active in this session yet;
-# sg reads /etc/group directly, so it works without logging out.
+K3D="$(command -v k3d)"
+
+# The docker group added in this same apply is not active in this session yet.
+# sg/newgrp are gone on Ubuntu 26.04, so re-exec through sudo with docker as
+# the primary group; the credentials are cached from the earlier sudo -v.
+# sudo resets PATH, hence the absolute k3d path.
 if docker info > /dev/null 2>&1; then
   run() { "$@"; }
 elif id -nG "$(whoami)" | tr ' ' '\n' | grep -qx docker; then
-  run() { sg docker -c "$*"; }
+  run() { sudo -g docker -u "$(whoami)" -- "$@"; }
 else
   echo "Docker daemon not reachable, skipping k3d cluster creation. Re-run 'chezmoi apply' after logging back in." >&2
   exit 0
 fi
 
-if ! run k3d registry list | grep -q '^k3d-local '; then
+if ! run "$K3D" registry list | grep -q '^k3d-local '; then
   echo "Creating k3d registry k3d-local:5000"
-  run k3d registry create local --port 5000
+  run "$K3D" registry create local --port 5000
 fi
 
-if ! run k3d cluster list | grep -q '^dev '; then
+if ! run "$K3D" cluster list | grep -q '^dev '; then
   echo "Creating k3d cluster dev"
-  run k3d cluster create --config "{{ .chezmoi.homeDir }}/.config/k3d/dev.yaml"
+  run "$K3D" cluster create --config "{{ .chezmoi.homeDir }}/.config/k3d/dev.yaml"
 fi
 
 # Make image references resolve identically inside and outside the cluster
