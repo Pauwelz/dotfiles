@@ -9,16 +9,31 @@ sudo apt-get update
 sudo apt-get install -y curl gnupg
 
 {{ range .packages.linux.apt_repos -}}
+{{- /* key_format "asc" keeps the key armored; source_format "list" writes a one-line
+       file. Use both when a package registers its own source, so ours is identical. */ -}}
+{{- $keyFormat := get . "key_format" | default "gpg" -}}
+{{- $sourceFormat := get . "source_format" | default "sources" -}}
+{{- $keyring := printf "/usr/share/keyrings/%s-archive-keyring.%s" .name $keyFormat -}}
 # --- {{ .name }} ---
-curl -fsSL {{ .key_url | quote }} | sudo gpg --dearmor --yes -o "/usr/share/keyrings/{{ .name }}-archive-keyring.gpg"
+{{ if eq $keyFormat "asc" -}}
+sudo curl -fsSLo {{ $keyring | quote }} {{ .key_url | quote }}
+{{ else -}}
+curl -fsSL {{ .key_url | quote }} | sudo gpg --dearmor --yes -o {{ $keyring | quote }}
+{{ end -}}
+{{ if eq $sourceFormat "list" -}}
+sudo rm -f "/etc/apt/sources.list.d/{{ .name }}.sources"
+echo "deb [arch={{ .architectures | replace " " "," }} signed-by={{ $keyring }}] {{ .uri }} {{ .suites }} {{ .components }}" | sudo tee "/etc/apt/sources.list.d/{{ .name }}.list" > /dev/null
+{{ else -}}
+sudo rm -f "/etc/apt/sources.list.d/{{ .name }}.list"
 sudo tee "/etc/apt/sources.list.d/{{ .name }}.sources" > /dev/null <<'SOURCES'
 Types: deb
 URIs: {{ .uri }}
 Suites: {{ .suites }}
 Components: {{ .components }}
 Architectures: {{ .architectures }}
-Signed-By: /usr/share/keyrings/{{ .name }}-archive-keyring.gpg
+Signed-By: {{ $keyring }}
 SOURCES
+{{ end -}}
 {{ end }}
 sudo apt-get update
 sudo apt-get install -y{{ range .packages.linux.apt }} {{ . | quote }}{{ end }}

@@ -21,6 +21,11 @@ packages:
         package: google-chrome-stable
       - name: claude-desktop
         key_url: https://downloads.claude.ai/claude-desktop/key.asc
+        # The package registers /etc/apt/sources.list.d/claude-desktop.list itself,
+        # signed by the plain .asc key. Match it exactly or apt reports conflicting
+        # Signed-By values for the same repository.
+        key_format: asc
+        source_format: list
         uri: https://downloads.claude.ai/claude-desktop/apt/stable
         suites: stable
         components: main
