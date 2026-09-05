@@ -120,6 +120,9 @@ jobs:
           chezmoi execute-template < .chezmoiscripts/run_onchange_before_25-remove-packages.sh.tmpl > /tmp/remove.sh
           grep -q 'firefox' /tmp/remove.sh
           grep -q 'ptyxis' /tmp/remove.sh
+          chezmoi execute-template < .chezmoiscripts/run_onchange_after_45-chrome-policies.sh.tmpl > /tmp/chrome.sh
+          grep -q '/etc/opt/chrome/policies/managed/managed_policies.json' /tmp/chrome.sh
+          sed -n '/<<.EOF_POLICY./,/^EOF_POLICY$/{//!p}' /tmp/chrome.sh | jq -e '.GeminiSettings == 1' > /dev/null
 
       - name: Show rendered fish config
         run: chezmoi cat ~/.config/fish/config.fish
@@ -140,7 +143,7 @@ jobs:
           cat "$HOME/.config/chezmoi/chezmoi.toml"
 
       - name: Lint rendered scripts (devtools only)
-        run: .github/scripts/lint-scripts.sh 20 25 35 40 50
+        run: .github/scripts/lint-scripts.sh 20 25 35 40 45 50
 
       - name: Check package selection and managed files (devtools only)
         run: |
@@ -161,7 +164,7 @@ jobs:
           cat "$HOME/.config/chezmoi/chezmoi.toml"
 
       - name: Lint rendered scripts (plain)
-        run: .github/scripts/lint-scripts.sh 20 25 35 40 50 60 70
+        run: .github/scripts/lint-scripts.sh 20 25 35 40 45 50 60 70
 
       - name: Check package selection and managed files (plain)
         run: |

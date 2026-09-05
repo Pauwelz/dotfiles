@@ -1,0 +1,21 @@
+{{ if and (eq .chezmoi.os "linux") .desktop -}}
+#!/bin/bash
+# Installs the "Just the Browser" Chrome policy (Gemini, AI Mode, Help Me Write,
+# theme generation, default-browser nag and other add-ons switched off). The
+# policy is vendored in .chezmoitemplates/chrome-managed-policies.json, copied
+# from https://github.com/corbindavenport/just-the-browser/blob/main/chrome/managed_policies.json.
+# chezmoi cannot manage files outside $HOME, so the JSON is inlined here: the
+# script re-runs whenever the vendored file changes. Chrome picks the policy up
+# at its next start; check chrome://policy.
+set -euo pipefail
+
+sudo -v
+
+sudo mkdir -p /etc/opt/chrome/policies/managed
+sudo tee /etc/opt/chrome/policies/managed/managed_policies.json > /dev/null <<'EOF_POLICY'
+{{ include ".chezmoitemplates/chrome-managed-policies.json" -}}
+EOF_POLICY
+sudo chmod 644 /etc/opt/chrome/policies/managed/managed_policies.json
+
+echo "Chrome policies installed; restart Chrome for them to take effect (see chrome://policy)." >&2
+{{ end -}}
