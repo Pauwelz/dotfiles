@@ -15,5 +15,7 @@ fi
 sudo -v
 tmp_dir="$(mktemp -d)"
 trap 'rm -rf "$tmp_dir"' EXIT
+# apt fetches local .deb files as the unprivileged _apt user; mktemp -d is 0700
+chmod 755 "$tmp_dir"
 ( cd "$tmp_dir" && /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/mkasberg/ghostty-ubuntu/HEAD/install.sh)" )
 {{ end -}}
