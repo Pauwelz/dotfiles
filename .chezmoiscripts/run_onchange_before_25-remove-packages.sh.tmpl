@@ -1,0 +1,37 @@
+{{ if and (eq .chezmoi.os "linux") .desktop -}}
+#!/bin/bash
+# Purges the stock apps replaced by this setup (packages.linux.apt_remove_desktop).
+# Runs after run_once_before_20-install-ghostty on purpose: apport-gtk depends on
+# `gnome-terminal | x-terminal-emulator`, so removing ptyxis before Ghostty
+# (which provides x-terminal-emulator) would make apt install gnome-terminal.
+set -euo pipefail
+
+sudo -v
+
+# Fresh Ubuntu installs ship Firefox as a snap behind the transitional deb
+if command -v snap > /dev/null && snap list firefox > /dev/null 2>&1; then
+  sudo snap remove firefox
+fi
+
+to_purge=()
+{{ range .packages.linux.apt_remove_desktop -}}
+if dpkg -s {{ . | quote }} > /dev/null 2>&1; then
+{{- if eq . "ptyxis" }}
+  if command -v ghostty > /dev/null; then
+    to_purge+=({{ . | quote }})
+  else
+    echo "ghostty not installed, keeping ptyxis so a terminal stays available." >&2
+  fi
+{{- else }}
+  to_purge+=({{ . | quote }})
+{{- end }}
+fi
+{{ end -}}
+
+if [ "${#to_purge[@]}" -gt 0 ]; then
+  echo "Purging: ${to_purge[*]}"
+  sudo apt-get purge -y --autoremove "${to_purge[@]}"
+else
+  echo "Nothing to remove."
+fi
+{{ end -}}
