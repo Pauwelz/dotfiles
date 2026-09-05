@@ -1,4 +1,7 @@
-{{ if and (eq .chezmoi.os "linux") .desktop -}}
+{{ if eq .chezmoi.os "linux" -}}
+{{- /* Derivatives (Mint, Pop) set their own VERSION_CODENAME; prefer UBUNTU_CODENAME. */ -}}
+{{- $codename := index .chezmoi.osRelease "ubuntuCodename" | default .chezmoi.osRelease.versionCodename -}}
+{{- $repoPackages := list -}}
 #!/bin/bash
 set -euo pipefail
 
@@ -6,39 +9,57 @@ sudo -v
 
 # Prerequisites for adding third-party repos (curl to fetch keys, gnupg to dearmor them)
 sudo apt-get update
-sudo apt-get install -y curl gnupg
+sudo apt-get install -y curl gnupg ca-certificates
 
 {{ range .packages.linux.apt_repos -}}
+{{- $when := get . "when" | default "always" -}}
+{{- $enabled := or (eq $when "always") (and (eq $when "desktop") $.desktop) (and (eq $when "devtools") $.devtools) -}}
+{{- if $enabled -}}
+{{- $repoPackages = concat $repoPackages .packages -}}
 {{- /* key_format "asc" keeps the key armored; source_format "list" writes a one-line
        file. Use both when a package registers its own source, so ours is identical. */ -}}
 {{- $keyFormat := get . "key_format" | default "gpg" -}}
 {{- $sourceFormat := get . "source_format" | default "sources" -}}
-{{- $keyring := printf "/usr/share/keyrings/%s-archive-keyring.%s" .name $keyFormat -}}
+{{- $keyring := printf "/usr/share/keyrings/%s-archive-keyring.%s" (get . "keyring" | default .name) $keyFormat -}}
+{{- $keyUrl := replace "{codename}" $codename .key_url -}}
+{{- $uri := replace "{codename}" $codename .uri -}}
+{{- $suites := replace "{codename}" $codename .suites -}}
 # --- {{ .name }} ---
 {{ if eq $keyFormat "asc" -}}
-sudo curl -fsSLo {{ $keyring | quote }} {{ .key_url | quote }}
+sudo curl -fsSLo {{ $keyring | quote }} {{ $keyUrl | quote }}
 {{ else -}}
-curl -fsSL {{ .key_url | quote }} | sudo gpg --dearmor --yes -o {{ $keyring | quote }}
+curl -fsSL {{ $keyUrl | quote }} | sudo gpg --dearmor --yes -o {{ $keyring | quote }}
 {{ end -}}
 {{ if eq $sourceFormat "list" -}}
 sudo rm -f "/etc/apt/sources.list.d/{{ .name }}.sources"
-echo "deb [arch={{ .architectures | replace " " "," }} signed-by={{ $keyring }}] {{ .uri }} {{ .suites }} {{ .components }}" | sudo tee "/etc/apt/sources.list.d/{{ .name }}.list" > /dev/null
+echo "deb [arch={{ .architectures | replace " " "," }} signed-by={{ $keyring }}] {{ $uri }} {{ $suites }} {{ .components }}" | sudo tee "/etc/apt/sources.list.d/{{ .name }}.list" > /dev/null
 {{ else -}}
 sudo rm -f "/etc/apt/sources.list.d/{{ .name }}.list"
 sudo tee "/etc/apt/sources.list.d/{{ .name }}.sources" > /dev/null <<'SOURCES'
 Types: deb
-URIs: {{ .uri }}
-Suites: {{ .suites }}
+URIs: {{ $uri }}
+Suites: {{ $suites }}
 Components: {{ .components }}
 Architectures: {{ .architectures }}
 Signed-By: {{ $keyring }}
 SOURCES
 {{ end -}}
+{{ end -}}
 {{ end }}
 sudo apt-get update
-sudo apt-get install -y{{ range .packages.linux.apt }} {{ . | quote }}{{ end }}
-{{- range .packages.linux.apt_repos }} {{ .package | quote }}{{ end }}
-
+{{ if .devtools -}}
+# Ubuntu's own Docker packages conflict with docker-ce
+for p in docker.io docker-compose podman-docker; do
+  if dpkg -s "$p" > /dev/null 2>&1; then
+    sudo apt-get remove -y "$p"
+  fi
+done
+{{ end -}}
+sudo apt-get install -y{{ range .packages.linux.apt_base }} {{ . | quote }}{{ end }}
+{{- if .desktop }}{{ range .packages.linux.apt_desktop }} {{ . | quote }}{{ end }}{{ end }}
+{{- if .devtools }}{{ range .packages.linux.apt_devtools }} {{ . | quote }}{{ end }}{{ end }}
+{{- range $repoPackages }} {{ . | quote }}{{ end }}
+{{ if .desktop }}
 if command -v snap > /dev/null; then
 {{- range .packages.linux.snap }}
   sudo snap install {{ . | quote }}
@@ -61,4 +82,5 @@ if [ -n "${DBUS_SESSION_BUS_ADDRESS:-}" ] && [ -x "$GEXT" ]; then
 else
   echo "No GNOME session bus or gext missing, skipping GNOME extensions." >&2
 fi
+{{ end -}}
 {{ end -}}

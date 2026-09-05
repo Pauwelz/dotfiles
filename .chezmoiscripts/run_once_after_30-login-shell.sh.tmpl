@@ -1,0 +1,19 @@
+{{ if eq .chezmoi.os "linux" -}}
+#!/bin/bash
+set -euo pipefail
+
+FISH_BIN="$(command -v fish || true)"
+
+if [ -z "$FISH_BIN" ]; then
+  echo "fish not on PATH, skipping login shell setup." >&2
+  exit 0
+fi
+
+CURRENT_SHELL="$(getent passwd "$(whoami)" | cut -d: -f7)"
+if [ "$CURRENT_SHELL" != "$FISH_BIN" ]; then
+  echo "Setting login shell to $FISH_BIN (was: $CURRENT_SHELL)"
+  sudo usermod --shell "$FISH_BIN" "$(whoami)"
+else
+  echo "Login shell already fish."
+fi
+{{ end -}}

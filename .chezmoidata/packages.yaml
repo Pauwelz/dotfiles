@@ -2,24 +2,42 @@ fonts:
   # Pinned Nerd Fonts release; bump to update FiraCode Nerd Font.
   nerd_fonts_version: "v3.5.1"
 
+# Pinned release binaries downloaded into ~/.local/bin on devtools machines
+# (see .chezmoiexternal.toml.tmpl). Bump a version and run `chezmoi apply`.
+tools:
+  kubectl: "v1.37.0"
+  helm: "v4.2.4"
+  k9s: "v0.51.0"
+  kubectx: "v0.11.0"
+  k3d: "v5.9.0"
+  # Tilt tags carry a `v`, the asset file names do not.
+  tilt: "0.37.7"
+
 packages:
   linux:
+    # `when` selects the machines that get the repo: always, desktop or devtools.
+    # `{codename}` is replaced with the Ubuntu release codename by the install
+    # script. `keyring` lets repos signed by the same key share one keyring file.
     apt_repos:
       - name: vscode
+        when: desktop
+        keyring: microsoft
         key_url: https://packages.microsoft.com/keys/microsoft.asc
         uri: https://packages.microsoft.com/repos/code
         suites: stable
         components: main
         architectures: amd64 arm64
-        package: code
+        packages: [code]
       - name: google-chrome
+        when: desktop
         key_url: https://dl.google.com/linux/linux_signing_key.pub
         uri: https://dl.google.com/linux/chrome/deb/
         suites: stable
         components: main
         architectures: amd64
-        package: google-chrome-stable
+        packages: [google-chrome-stable]
       - name: claude-desktop
+        when: desktop
         key_url: https://downloads.claude.ai/claude-desktop/key.asc
         # The package registers /etc/apt/sources.list.d/claude-desktop.list itself,
         # signed by the plain .asc key. Match it exactly or apt reports conflicting
@@ -30,12 +48,54 @@ packages:
         suites: stable
         components: main
         architectures: amd64 arm64
-        package: claude-desktop
-    apt:
+        packages: [claude-desktop]
+      - name: docker
+        when: devtools
+        key_url: https://download.docker.com/linux/ubuntu/gpg
+        uri: https://download.docker.com/linux/ubuntu
+        suites: "{codename}"
+        components: stable
+        architectures: amd64 arm64
+        packages:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+          - docker-buildx-plugin
+          - docker-compose-plugin
+      - name: azure-cli
+        when: devtools
+        # Same signing key as VS Code; both write microsoft-archive-keyring.gpg.
+        keyring: microsoft
+        key_url: https://packages.microsoft.com/keys/microsoft.asc
+        uri: https://packages.microsoft.com/repos/azure-cli/
+        suites: "{codename}"
+        components: main
+        architectures: amd64 arm64
+        packages: [azure-cli]
+      - name: tailscale
+        when: always
+        key_url: https://pkgs.tailscale.com/stable/ubuntu/{codename}.asc
+        uri: https://pkgs.tailscale.com/stable/ubuntu
+        suites: "{codename}"
+        components: main
+        architectures: amd64 arm64
+        packages: [tailscale]
+    # Every Linux machine
+    apt_base:
       - git
-      - pipx
       - fish
       - starship
+      - curl
+      - ca-certificates
+    apt_desktop:
+      - pipx
+    apt_devtools:
+      - dotnet-sdk-10.0
+      # fzf enables the interactive mode of kubectx/kubens
+      - fzf
+      - jq
+      - unzip
+      - gh
     snap:
       - bitwarden
     pipx:
