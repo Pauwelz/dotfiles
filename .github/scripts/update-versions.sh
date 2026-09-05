@@ -48,7 +48,10 @@ latest_version() {
       ;;
     *) echo "Unknown source $source" >&2; return 1 ;;
   esac
-  [ -n "$tag" ] && [ "$tag" != "null" ] || { echo "No release found for $source" >&2; return 1; }
+  if [ -z "$tag" ] || [ "$tag" = "null" ]; then
+    echo "No release found for $source" >&2
+    return 1
+  fi
   if [ "$transform" = "strip-v" ]; then
     tag="${tag#v}"
   fi
