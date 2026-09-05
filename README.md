@@ -59,6 +59,12 @@ chezmoi apply
   login. The current user is made the Tailscale operator so the extension can
   toggle the connection without root
 - Pins Chrome, VS Code, Claude Desktop and Files to the Dash
+- Downloads the [Just the Browser](https://github.com/corbindavenport/just-the-browser)
+  policy for Chrome (upstream `main`, refreshed weekly like the other externals)
+  and copies it into `/etc/opt/chrome/policies/managed` whenever it changes.
+  It turns off Gemini, AI Mode, Help Me Write, theme generation, the
+  default-browser nag and the built-in DNS client. Restart Chrome and check
+  `chrome://policy`
 - Points `SSH_AUTH_SOCK` at the Bitwarden snap SSH agent
 
 ## What a devtools install does

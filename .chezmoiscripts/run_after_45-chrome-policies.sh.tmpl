@@ -1,0 +1,27 @@
+{{ if and (eq .chezmoi.os "linux") .desktop -}}
+#!/bin/bash
+# Installs the "Just the Browser" Chrome policy (Gemini, AI Mode, Help Me Write,
+# theme generation, default-browser nag and other add-ons switched off).
+# .chezmoiexternal downloads the upstream file into ~/.local/share and refreshes
+# it weekly; chezmoi cannot manage files outside $HOME, so this copies it into
+# Chrome's managed policy directory. Runs on every apply but only asks for sudo
+# when the installed copy differs. Chrome reads it at its next start; see
+# chrome://policy.
+set -euo pipefail
+
+src="$HOME/.local/share/just-the-browser/chrome-managed_policies.json"
+dst=/etc/opt/chrome/policies/managed/managed_policies.json
+
+if [ ! -s "$src" ]; then
+  echo "Chrome policy not downloaded ($src missing), skipping." >&2
+  exit 0
+fi
+
+if cmp -s "$src" "$dst"; then
+  exit 0
+fi
+
+sudo -v
+sudo install -D -m 644 "$src" "$dst"
+echo "Chrome policies updated; restart Chrome for them to take effect (see chrome://policy)." >&2
+{{ end -}}
