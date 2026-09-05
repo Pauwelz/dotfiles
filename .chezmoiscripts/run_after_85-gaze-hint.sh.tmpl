@@ -1,0 +1,22 @@
+{{ if and (eq .chezmoi.os "linux") .laptop -}}
+#!/bin/bash
+# Runs on every apply and stays silent once a face is enrolled. Enrolling is
+# deliberately manual: it needs the camera and a reboot after the first install
+# so PAM, the gazed service and the GDM extension are all in place.
+set -euo pipefail
+
+if ! command -v gaze > /dev/null; then
+  exit 0
+fi
+
+# `gaze list-faces` talks to gazed over DBus; before the first reboot that fails
+if ! faces="$(gaze list-faces 2> /dev/null)" || grep -q 'No faces found' <<< "$faces"; then
+  cat >&2 <<'MSG'
+Gaze is installed but no face is enrolled for this user. Reboot once after the
+first install, then run:
+  gaze add-face default
+  gaze auth
+Face unlock on the lock screen needs a log out and back in after that.
+MSG
+fi
+{{ end -}}

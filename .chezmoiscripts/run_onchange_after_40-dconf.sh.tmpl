@@ -10,14 +10,15 @@ if ! command -v dconf > /dev/null || [ -z "${DBUS_SESSION_BUS_ADDRESS:-}" ]; the
 fi
 
 dconf load /org/gnome/shell/ <<'EOF_SHELL'
-{{ include ".chezmoitemplates/gnome-shell-dconf.ini" -}}
+{{ includeTemplate ".chezmoitemplates/gnome-shell-dconf.ini" . -}}
 EOF_SHELL
 
 dconf load /org/gnome/nautilus/ <<'EOF_NAUTILUS'
 {{ include ".chezmoitemplates/gnome-nautilus-dconf.ini" -}}
 EOF_NAUTILUS
 
-# The extension files are unpacked by chezmoi (.chezmoiexternal), but GNOME
-# Shell only loads new or updated extensions at login.
-echo "GNOME extensions are loaded at login: log out and back in if dash-to-panel or the Tailscale toggle is missing or stale." >&2
+# The extension files are unpacked by chezmoi (.chezmoiexternal) or installed
+# by apt (gaze-gnome-extension), but GNOME Shell only loads new or updated
+# extensions at login.
+echo "GNOME extensions are loaded at login: log out and back in if dash-to-panel{{ if .laptop }}, Gaze{{ end }} or the Tailscale toggle is missing or stale." >&2
 {{ end -}}

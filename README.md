@@ -20,6 +20,14 @@ On first init chezmoi asks three questions:
 Run `chezmoi init --prompt` to re-ask. After pulling a change that adds a new
 question, run `chezmoi init` once; it asks only the unanswered one.
 
+A fourth value, `laptop`, is not asked but detected: on `chezmoi init` the
+config template reads the SMBIOS chassis type from
+`/sys/class/dmi/id/chassis_type` and sets `laptop = true` on a GNOME desktop
+whose chassis is a laptop, notebook, convertible or detachable. Check it with
+`grep laptop ~/.config/chezmoi/chezmoi.toml`; to override it, edit that line
+(the next `chezmoi init` re-detects). Laptops get everything a desktop gets
+plus the items under [What a laptop install does](#what-a-laptop-install-does).
+
 Before reading the source state, chezmoi runs `.install-password-manager.sh`
 (a `read-source-state.pre` hook). It installs the Bitwarden CLI via snap if
 missing, points it at the EU cloud (`vault.bitwarden.eu`) and runs `bw login`
@@ -66,6 +74,21 @@ chezmoi apply
   default-browser nag and the built-in DNS client. Restart Chrome and check
   `chrome://policy`
 - Points `SSH_AUTH_SOCK` at the Bitwarden snap SSH agent
+
+## What a laptop install does
+
+- Adds the [Gaze](https://github.com/GunduLabs/gaze) apt repository and
+  installs `gaze` (daemon, CLI and PAM module), `gaze-gui` and
+  `gaze-gnome-extension` for face authentication with the webcam. The dconf
+  settings enable the extension and turn on face unlock for the GDM lock
+  screen. The repository only serves Ubuntu 24.04 (noble), 25.10 (questing) and
+  26.04 (resolute); on another release `apt-get update` fails until the
+  `gundulabs` entry in `.chezmoidata/packages.yaml` is adjusted. Enrolling is
+  manual: reboot once after the first install, then run `gaze add-face default`
+  and test with `gaze auth` (chezmoi prints a reminder on every apply until a
+  face is enrolled). `gaze doctor` checks the camera, PAM and the daemon
+- Adds the [Teams for Linux](https://teamsforlinux.de/) apt repository,
+  installs `teams-for-linux` and pins it to the Dash next to Claude Desktop
 
 ## What a devtools install does
 
