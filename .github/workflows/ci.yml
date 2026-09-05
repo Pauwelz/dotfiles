@@ -6,6 +6,7 @@ on:
 
 env:
   DESKTOP_PROMPT: "Is this a GNOME desktop (install GUI apps and fonts and apply dconf settings)"
+  EMAIL_PROMPT: "Work email (Bitwarden CLI not installed or not logged in)"
 
 jobs:
   check:
@@ -26,11 +27,11 @@ jobs:
           ln -s "$GITHUB_WORKSPACE" "$HOME/.local/share/chezmoi"
 
       - name: Validate config template
-        run: chezmoi execute-template --init --promptBool "$DESKTOP_PROMPT=true" < .chezmoi.toml.tmpl
+        run: chezmoi execute-template --init --promptBool "$DESKTOP_PROMPT=true" --promptString "$EMAIL_PROMPT=ci@example.invalid" < .chezmoi.toml.tmpl
 
       - name: Initialise as a desktop machine
         run: |
-          chezmoi init --promptBool "$DESKTOP_PROMPT=true"
+          chezmoi init --promptBool "$DESKTOP_PROMPT=true" --promptString "$EMAIL_PROMPT=ci@example.invalid"
           cat "$HOME/.config/chezmoi/chezmoi.toml"
 
       - name: chezmoi doctor
@@ -38,6 +39,12 @@ jobs:
 
       - name: Dry-run apply (files and externals, no scripts)
         run: chezmoi apply --dry-run --verbose --exclude=scripts
+
+      - name: Lint bootstrap script
+        run: shellcheck install.sh && bash -n install.sh
+
+      - name: Check work email reached the devops include
+        run: chezmoi cat ~/.config/git/devops.gitconfig | grep -q 'email = ci@example.invalid'
 
       - name: Lint rendered scripts
         run: |
@@ -58,7 +65,7 @@ jobs:
 
       - name: Re-initialise as a headless machine
         run: |
-          chezmoi init --prompt --promptBool "$DESKTOP_PROMPT=false"
+          chezmoi init --prompt --promptBool "$DESKTOP_PROMPT=false" --promptString "$EMAIL_PROMPT=ci@example.invalid"
           cat "$HOME/.config/chezmoi/chezmoi.toml"
           chezmoi managed | tee /tmp/managed.txt
           ! grep -qE '^\.config/ghostty|^\.local/share/fonts' /tmp/managed.txt

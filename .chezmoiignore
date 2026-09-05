@@ -1,6 +1,10 @@
 README.md
+install.sh
 .github/
 {{ if not .desktop }}
 .config/ghostty
 .local/share/fonts
+{{ end }}
+{{ if not .work_email }}
+.config/git/devops.gitconfig
 {{ end }}
