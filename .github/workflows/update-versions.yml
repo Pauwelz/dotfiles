@@ -1,0 +1,52 @@
+name: Update pinned versions
+
+# Bumps the pins in .chezmoidata/packages.yaml to the latest upstream releases
+# and opens (or refreshes) a pull request. With the default github.token GitHub
+# does not run CI on that PR; store a fine-grained PAT with contents and
+# pull-requests write access as UPDATE_VERSIONS_TOKEN to get CI on it.
+on:
+  schedule:
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    env:
+      BRANCH: update-versions
+      GH_TOKEN: ${{ secrets.UPDATE_VERSIONS_TOKEN || github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.UPDATE_VERSIONS_TOKEN || github.token }}
+
+      - name: Update the pins
+        id: update
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          .github/scripts/update-versions.sh | tee /tmp/report.txt
+          if git diff --quiet; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Open or refresh the pull request
+        if: steps.update.outputs.changed == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -B "$BRANCH"
+          git commit -am "Update pinned versions"
+          git push --force origin "$BRANCH"
+          body="$(printf 'Automated bump of the pins in `.chezmoidata/packages.yaml`.\n\n```\n%s\n```\n' "$(cat /tmp/report.txt)")"
+          if gh pr view "$BRANCH" --json number > /dev/null 2>&1; then
+            gh pr edit "$BRANCH" --body "$body"
+          else
+            gh pr create --head "$BRANCH" --title "Update pinned versions" --body "$body"
+          fi

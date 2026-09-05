@@ -57,8 +57,8 @@ jobs:
 
       - name: Lint hook and helper scripts
         run: |
-          shellcheck .install-password-manager.sh .github/scripts/lint-scripts.sh
-          bash -n .install-password-manager.sh .github/scripts/lint-scripts.sh
+          shellcheck .install-password-manager.sh .github/scripts/lint-scripts.sh .github/scripts/update-versions.sh
+          bash -n .install-password-manager.sh .github/scripts/lint-scripts.sh .github/scripts/update-versions.sh
 
       - name: Validate config template
         run: chezmoi execute-template --init --promptBool "$DESKTOP_PROMPT=true" --promptBool "$DEVTOOLS_PROMPT=true" --promptString "$WORK_EMAIL_PROMPT=$WORK_EMAIL" < .chezmoi.toml.tmpl
@@ -114,9 +114,12 @@ jobs:
           grep -q 'google-chrome' /tmp/pkgs.sh
           grep -q 'tailscale' /tmp/pkgs.sh
           grep -q 'tailscale set --operator' /tmp/pkgs.sh
-          grep -q 'tailscale-gnome-qs@tailscale-qs.github.io' /tmp/pkgs.sh
+          ! grep -q 'pipx' /tmp/pkgs.sh
           ! grep -q '{codename}' /tmp/pkgs.sh
           test "$(grep -c 'microsoft-archive-keyring.gpg' /tmp/pkgs.sh)" -ge 2
+          chezmoi execute-template < .chezmoiscripts/run_onchange_before_25-remove-packages.sh.tmpl > /tmp/remove.sh
+          grep -q 'firefox' /tmp/remove.sh
+          grep -q 'ptyxis' /tmp/remove.sh
 
       - name: Show rendered fish config
         run: chezmoi cat ~/.config/fish/config.fish
@@ -127,6 +130,8 @@ jobs:
           ! grep -qE '^(README.md|\.github)' /tmp/managed.txt
           grep -q '^\.local/bin/kubectl$' /tmp/managed.txt
           grep -q '^\.config/k3d/dev.yaml$' /tmp/managed.txt
+          grep -qx '.local/share/gnome-shell/extensions/dash-to-panel@jderose9.github.com/metadata.json' /tmp/managed.txt
+          grep -qx '.local/share/gnome-shell/extensions/tailscale-gnome-qs@tailscale-qs.github.io/metadata.json' /tmp/managed.txt
 
       # --- Scenario 2: devtools only (headless devbox) --------------------------
       - name: Re-initialise as devtools only
@@ -135,7 +140,7 @@ jobs:
           cat "$HOME/.config/chezmoi/chezmoi.toml"
 
       - name: Lint rendered scripts (devtools only)
-        run: .github/scripts/lint-scripts.sh 20 35 40 50
+        run: .github/scripts/lint-scripts.sh 20 25 35 40 50
 
       - name: Check package selection and managed files (devtools only)
         run: |
@@ -144,7 +149,7 @@ jobs:
           ! grep -q 'google-chrome' /tmp/pkgs.sh
           ! grep -q 'snap install' /tmp/pkgs.sh
           chezmoi managed | tee /tmp/managed.txt
-          ! grep -qE '^\.config/ghostty|^\.local/share/fonts' /tmp/managed.txt
+          ! grep -qE '^\.config/ghostty|^\.local/share/fonts|gnome-shell/extensions' /tmp/managed.txt
           grep -q '^\.local/bin/k3d$' /tmp/managed.txt
           chezmoi cat ~/.config/fish/config.fish | grep -q DOTNET_NOLOGO
           chezmoi apply --dry-run --verbose --exclude=scripts
@@ -156,7 +161,7 @@ jobs:
           cat "$HOME/.config/chezmoi/chezmoi.toml"
 
       - name: Lint rendered scripts (plain)
-        run: .github/scripts/lint-scripts.sh 20 35 40 50 60 70
+        run: .github/scripts/lint-scripts.sh 20 25 35 40 50 60 70
 
       - name: Check package selection and managed files (plain)
         run: |
@@ -168,7 +173,7 @@ jobs:
           grep -q '"fish"' /tmp/pkgs.sh
           grep -q '"jq"' /tmp/pkgs.sh
           chezmoi managed | tee /tmp/managed.txt
-          ! grep -qE '^\.config/ghostty|^\.local/share/fonts|^\.local/bin/|^\.config/k3d' /tmp/managed.txt
+          ! grep -qE '^\.config/ghostty|^\.local/share/fonts|^\.local/bin/|^\.config/k3d|gnome-shell/extensions' /tmp/managed.txt
           grep -qx '.ssh/config' /tmp/managed.txt
           grep -qx '.ssh/config.d/azure-devops.conf' /tmp/managed.txt
           ! chezmoi cat ~/.ssh/config | grep -q IdentityAgent

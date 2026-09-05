@@ -56,7 +56,6 @@ for p in docker.io docker-compose podman-docker; do
 done
 {{ end -}}
 sudo apt-get install -y{{ range .packages.linux.apt_base }} {{ . | quote }}{{ end }}
-{{- if .desktop }}{{ range .packages.linux.apt_desktop }} {{ . | quote }}{{ end }}{{ end }}
 {{- if .devtools }}{{ range .packages.linux.apt_devtools }} {{ . | quote }}{{ end }}{{ end }}
 {{- range $repoPackages }} {{ . | quote }}{{ end }}
 {{ if .desktop }}
@@ -68,24 +67,9 @@ else
   echo "snap not available, skipping snap packages." >&2
 fi
 
-pipx ensurepath
-{{ range .packages.linux.pipx -}}
-# --system-site-packages gives gnome-extensions-cli access to the distro PyGObject
-pipx install {{ . | quote }} --system-site-packages
-{{ end }}
 # Lets the Tailscale quick-settings extension toggle the connection without root
 if command -v tailscale > /dev/null; then
   sudo tailscale set --operator="$(whoami)"
-fi
-
-GEXT="{{ .chezmoi.homeDir }}/.local/bin/gext"
-if [ -n "${DBUS_SESSION_BUS_ADDRESS:-}" ] && [ -x "$GEXT" ]; then
-{{- range .packages.linux.gext }}
-  "$GEXT" install {{ . | quote }}
-  "$GEXT" enable {{ . | quote }}
-{{- end }}
-else
-  echo "No GNOME session bus or gext missing, skipping GNOME extensions." >&2
 fi
 {{ end -}}
 {{ end -}}

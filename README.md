@@ -48,11 +48,17 @@ chezmoi apply
   installs the packages listed in `.chezmoidata/packages.yaml`
 - Installs Ghostty from [ghostty-ubuntu](https://github.com/mkasberg/ghostty-ubuntu)
   and registers it as the default terminal
+- Purges the stock apps those replace: Firefox (deb and snap) and Ptyxis. The
+  Ptyxis removal waits until Ghostty is present, because `apport-gtk` needs an
+  `x-terminal-emulator` provider
 - Installs FiraCode Nerd Font (pinned in `.chezmoidata/packages.yaml`)
-- Installs and enables the dash-to-panel and Tailscale quick-settings GNOME
-  extensions and applies the curated dconf settings from `.chezmoitemplates/`.
-  The current user is made the Tailscale operator so the extension can toggle
-  the connection without root
+- Unpacks the dash-to-panel and Tailscale quick-settings GNOME extensions from
+  their GitHub release zips (pinned under `gnome_extensions:`) into
+  `~/.local/share/gnome-shell/extensions` and enables them through the curated
+  dconf settings from `.chezmoitemplates/`. GNOME Shell loads them at the next
+  login. The current user is made the Tailscale operator so the extension can
+  toggle the connection without root
+- Pins Chrome, VS Code, Claude Desktop and Files to the Dash
 - Points `SSH_AUTH_SOCK` at the Bitwarden snap SSH agent
 
 ## What a devtools install does
@@ -80,6 +86,28 @@ dotnet publish -t:PublishContainer -p:ContainerRepository=myapp -p:ContainerImag
 k3d image import myapp:dev -c dev
 kubectl rollout restart deploy/myapp
 ```
+
+## Pinned versions
+
+Nerd Fonts, the release binaries and the GNOME extensions are pinned in
+`.chezmoidata/packages.yaml`. To see what is outdated, or to bump every pin to
+the latest upstream release:
+
+```sh
+.github/scripts/update-versions.sh --check
+.github/scripts/update-versions.sh
+```
+
+The script needs `curl` and `jq`; export `GITHUB_TOKEN` if you hit the
+anonymous GitHub API rate limit. Review the diff, `chezmoi apply` and commit.
+
+The `Update pinned versions` workflow runs the same script every Monday (or on
+demand from the Actions tab) and opens a pull request on the `update-versions`
+branch. CI on that PR dry-run applies the externals, which proves the new
+release assets exist. GitHub does not run CI on pull requests opened with the
+default workflow token, so either close and reopen the PR by hand or add a
+fine-grained personal access token with contents and pull-requests write
+access to the repository secrets as `UPDATE_VERSIONS_TOKEN`.
 
 ## SSH
 
@@ -117,7 +145,10 @@ the email locally in such repos.
   updated by chezmoi. To reinstall Ghostty or recreate the cluster (after
   `k3d cluster delete dev`), run
   `chezmoi state delete-bucket --bucket=scriptState && chezmoi apply`.
-- To update the Nerd Font, bump `fonts.nerd_fonts_version` and run
-  `chezmoi apply`.
+- After a GNOME extension pin changes, log out and back in so GNOME Shell
+  loads the new version.
+- Machines set up before the extensions moved to `.chezmoiexternal` still have
+  pipx and `gext`. Remove them with
+  `sudo apt-get purge --autoremove pipx && rm -rf ~/.local/share/pipx ~/.local/bin/gext`.
 - The install script only runs again when `.chezmoidata/packages.yaml` or the
   script itself changes. Force it with the same `delete-bucket` command.

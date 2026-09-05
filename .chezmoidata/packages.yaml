@@ -1,3 +1,6 @@
+# Pinned versions. `.github/scripts/update-versions.sh --check` compares every
+# pin below with the latest upstream release; without --check it rewrites them.
+# A weekly GitHub Actions job does the same and opens a PR.
 fonts:
   # Pinned Nerd Fonts release; bump to update FiraCode Nerd Font.
   nerd_fonts_version: "v3.5.1"
@@ -12,6 +15,14 @@ tools:
   k3d: "v5.9.0"
   # Tilt tags carry a `v`, the asset file names do not.
   tilt: "0.37.7"
+
+# GNOME Shell extensions unpacked into ~/.local/share/gnome-shell/extensions on
+# desktops (see .chezmoiexternal.toml.tmpl). GitHub release tags; the zips are
+# the same builds extensions.gnome.org ships. Enabled via the dconf template.
+gnome_extensions:
+  dash_to_panel: "v73"
+  # Tailscale toggle in quick settings; needs `tailscale set --operator`
+  tailscale_qs: "v9"
 
 packages:
   linux:
@@ -89,8 +100,6 @@ packages:
       - ca-certificates
       # jq parses `bw list items` in the SSH-key script
       - jq
-    apt_desktop:
-      - pipx
     apt_devtools:
       - dotnet-sdk-10.0
       # fzf enables the interactive mode of kubectx/kubens
@@ -99,9 +108,9 @@ packages:
       - gh
     snap:
       - bitwarden
-    pipx:
-      - gnome-extensions-cli
-    gext:
-      - dash-to-panel@jderose9.github.com
-      # Tailscale toggle in quick settings; needs `tailscale set --operator`
-      - tailscale-gnome-qs@tailscale-qs.github.io
+    # Stock apps replaced by the ones above (Chrome, Ghostty). Purged by
+    # run_onchange_before_25 on desktops, after Ghostty is installed: apport-gtk
+    # needs an x-terminal-emulator provider, which the Ghostty package is.
+    apt_remove_desktop:
+      - firefox
+      - ptyxis

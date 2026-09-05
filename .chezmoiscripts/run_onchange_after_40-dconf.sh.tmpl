@@ -1,5 +1,7 @@
 {{ if and (eq .chezmoi.os "linux") .desktop -}}
 #!/bin/bash
+# Re-runs when the pinned extension versions change so the login hint is shown:
+# gnome extensions {{ .gnome_extensions | toJson }}
 set -euo pipefail
 
 if ! command -v dconf > /dev/null || [ -z "${DBUS_SESSION_BUS_ADDRESS:-}" ]; then
@@ -14,4 +16,8 @@ EOF_SHELL
 dconf load /org/gnome/nautilus/ <<'EOF_NAUTILUS'
 {{ include ".chezmoitemplates/gnome-nautilus-dconf.ini" -}}
 EOF_NAUTILUS
+
+# The extension files are unpacked by chezmoi (.chezmoiexternal), but GNOME
+# Shell only loads new or updated extensions at login.
+echo "GNOME extensions are loaded at login: log out and back in if dash-to-panel or the Tailscale toggle is missing or stale." >&2
 {{ end -}}

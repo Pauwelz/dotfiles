@@ -4,6 +4,22 @@
     url = "https://github.com/ryanoasis/nerd-fonts/releases/download/{{ .fonts.nerd_fonts_version }}/FiraCode.zip"
     include = ["*.ttf"]
     refreshPeriod = "168h"
+
+{{- /* GNOME Shell extensions, pinned in .chezmoidata/packages.yaml (gnome_extensions.*).
+       Unpacking the release zip is all `gnome-extensions install` does; the dconf
+       template enables them. exact drops files left over from an older release. */}}
+
+[".local/share/gnome-shell/extensions/dash-to-panel@jderose9.github.com"]
+    type = "archive"
+    url = "https://github.com/home-sweet-gnome/dash-to-panel/releases/download/{{ .gnome_extensions.dash_to_panel }}/dash-to-panel%40jderose9.github.com_{{ .gnome_extensions.dash_to_panel }}.zip"
+    exact = true
+    refreshPeriod = "168h"
+
+[".local/share/gnome-shell/extensions/tailscale-gnome-qs@tailscale-qs.github.io"]
+    type = "archive"
+    url = "https://github.com/tailscale-qs/tailscale-gnome-qs/releases/download/{{ .gnome_extensions.tailscale_qs }}/tailscale-gnome-qs%40tailscale-qs.github.io.zip"
+    exact = true
+    refreshPeriod = "168h"
 {{ end -}}
 {{ if .devtools -}}
 {{- /* Release binaries pinned in .chezmoidata/packages.yaml (tools.*). Some projects

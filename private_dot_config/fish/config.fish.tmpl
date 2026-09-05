@@ -1,7 +1,7 @@
 if status is-interactive
     starship init fish | source
 end
-# Release binaries and pipx apps live here; fish does not read ~/.profile
+# Release binaries live here; fish does not read ~/.profile
 fish_add_path --global {{ .chezmoi.homeDir }}/.local/bin
 {{ if .desktop -}}
 set -gx SSH_AUTH_SOCK {{ .chezmoi.homeDir }}/snap/bitwarden/current/.bitwarden-ssh-agent.sock
