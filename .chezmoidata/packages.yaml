@@ -32,7 +32,6 @@ packages:
       - fish
       - starship
     snap:
-      - bw
       - bitwarden
     pipx:
       - gnome-extensions-cli

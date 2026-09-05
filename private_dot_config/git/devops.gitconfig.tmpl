@@ -1,2 +1,2 @@
 [user]
-	email = {{ .work_email }}
+	email = {{ (index (bitwardenFields "item" "Identiteitskaart") "Work Email").value }}

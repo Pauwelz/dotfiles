@@ -5,17 +5,6 @@ Personal [chezmoi](https://www.chezmoi.io/) configuration for Ubuntu with GNOME.
 ## Install
 
 ```sh
-sh -c "$(curl -fsSL https://raw.githubusercontent.com/Pauwelz/dotfiles/main/install.sh)"
-```
-
-`install.sh` installs chezmoi and the Bitwarden CLI (via snap), logs in and
-unlocks Bitwarden, then runs `chezmoi init --apply pauwelz`. Extra arguments
-are passed to `chezmoi init`, for example `-- --branch some-branch`.
-
-Without the bootstrap script the plain one-liner also works, but then `bw`
-must already be installed and logged in, or the work email is prompted for:
-
-```sh
 sh -c "$(curl -fsLS get.chezmoi.io)" -- init --apply pauwelz
 ```
 
@@ -23,11 +12,17 @@ On first init chezmoi asks whether the machine is a GNOME desktop. Answer `n`
 on servers or WSL: only the git and fish configuration is applied there. Run
 `chezmoi init --prompt` to re-ask.
 
-Every `chezmoi init` also reads the work email from the Bitwarden identity
-item `Identiteitskaart` (custom field `Work Email`) when `bw` is installed and
-logged in, unlocking the vault if needed. Without `bw` the value cached in
-`~/.config/chezmoi/chezmoi.toml` is reused, and if there is none it is
-prompted for. Leaving the prompt empty disables the DevOps email include.
+Before reading the source state, chezmoi runs `.install-password-manager.sh`
+(a `read-source-state.pre` hook). It installs the Bitwarden CLI via snap if
+missing and runs `bw login` once if not logged in. The work email is then read
+from the Bitwarden identity item `Identiteitskaart` (custom field `Work Email`)
+every time the DevOps git include is rendered. chezmoi unlocks the vault
+itself, prompting for the master password, unless `BW_SESSION` is exported:
+
+```fish
+set -gx BW_SESSION (bw unlock --raw)
+chezmoi apply
+```
 
 ## What a desktop install does
 
@@ -45,8 +40,9 @@ prompted for. Leaving the prompt empty disables the DevOps email include.
 
 `~/.gitconfig` sets only the user name. The email is chosen per remote host
 through conditional includes: GitHub remotes use the noreply address and Azure
-DevOps remotes use the work address fetched from Bitwarden at init. A repo that matches neither host needs
-`git config user.email` set locally before it can commit.
+DevOps remotes use the work address read from Bitwarden. A repo that matches neither host needs
+`git config user.email` set locally before it can commit. On a machine without
+the Bitwarden CLI the DevOps include is skipped entirely.
 
 Known limitation: git (verified on 2.43) does not match SCP-style SSH remotes
 such as `git@github.com:owner/repo.git` against `hasconfig` patterns. Clone

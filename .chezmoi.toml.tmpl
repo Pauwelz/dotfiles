@@ -1,16 +1,10 @@
 {{- /* Answered once on `chezmoi init`; re-ask with `chezmoi init --prompt`. */ -}}
 {{- $desktop := promptBoolOnce . "desktop" "Is this a GNOME desktop (install GUI apps and fonts and apply dconf settings)" -}}
-
-{{- /* Work email lives in Bitwarden: identity item "Identiteitskaart", custom field "Work Email".
-       On every `chezmoi init` it is read from Bitwarden when the CLI is installed and logged in
-       (chezmoi runs `bw unlock` itself when BW_SESSION is unset). Otherwise the value cached in
-       this config is reused, and only if there is none is it prompted for. */ -}}
-{{- $workEmail := "" -}}
-{{- if and (lookPath "bw") (ne (output "bw" "status" | fromJson).status "unauthenticated") -}}
-{{-   $workEmail = (index (bitwardenFields "item" "Identiteitskaart") "Work Email").value -}}
-{{- else -}}
-{{-   $workEmail = promptStringOnce . "work_email" "Work email (Bitwarden CLI not installed or not logged in)" -}}
-{{- end -}}
 [data]
     desktop = {{ $desktop }}
-    work_email = {{ $workEmail | quote }}
+
+# Installs and logs in to the Bitwarden CLI before chezmoi reads the source
+# state, so templates can call bitwardenFields. See
+# https://www.chezmoi.io/user-guide/advanced/install-your-password-manager-on-init/
+[hooks.read-source-state.pre]
+    command = {{ joinPath .chezmoi.sourceDir ".install-password-manager.sh" | quote }}
