@@ -1,0 +1,77 @@
+{{ if eq .chezmoi.os "linux" -}}
+#!/bin/bash
+# Writes the public key of every SSH-key item in the Bitwarden vault to
+# ~/.ssh/<item name>.pub (for IdentityFile + IdentitiesOnly against the
+# Bitwarden SSH agent) and keeps all of them in a managed block of
+# ~/.ssh/authorized_keys. Runs on every apply because chezmoi cannot see vault
+# changes. Export BW_SESSION (`set -gx BW_SESSION (bw unlock --raw)`) to skip
+# the master password prompt.
+set -euo pipefail
+export PATH="/snap/bin:$PATH"
+
+if ! command -v bw > /dev/null || ! command -v jq > /dev/null; then
+  echo "bw or jq not installed, skipping SSH key sync." >&2
+  exit 0
+fi
+
+status="$(bw status | jq -r .status)"
+case "$status" in
+  unlocked) ;;
+  locked)
+    if [ ! -t 0 ]; then
+      echo "Bitwarden vault is locked and no terminal is attached; export BW_SESSION to sync SSH keys." >&2
+      exit 0
+    fi
+    echo "Unlocking the Bitwarden vault to sync SSH public keys..." >&2
+    BW_SESSION="$(bw unlock --raw)"
+    export BW_SESSION
+    ;;
+  *)
+    echo "Bitwarden CLI is $status, skipping SSH key sync." >&2
+    exit 0
+    ;;
+esac
+
+bw sync --quiet || echo "bw sync failed, using the cached vault." >&2
+
+ssh_dir="$HOME/.ssh"
+mkdir -p "$ssh_dir"
+chmod 700 "$ssh_dir"
+
+keys=()
+# type 5 = SSH key item. The public key is "<type> <base64>"; the item name
+# becomes both the file name and the key comment.
+while IFS=$'\t' read -r name pubkey; do
+  if [ -z "$name" ] || [ -z "$pubkey" ]; then
+    continue
+  fi
+  pubkey="$(awk '{print $1 " " $2}' <<< "$pubkey")"
+  file="$(tr '[:upper:]' '[:lower:]' <<< "$name" | sed 's/[^a-z0-9._-]/-/g')"
+  printf '%s %s\n' "$pubkey" "$name" > "$ssh_dir/$file.pub"
+  chmod 644 "$ssh_dir/$file.pub"
+  echo "Wrote ~/.ssh/$file.pub"
+  keys+=("$pubkey $name")
+done < <(bw list items --nointeraction | jq -r '.[] | select(.type == 5 and .sshKey.publicKey != null) | [.name, .sshKey.publicKey] | @tsv')
+
+if [ "${#keys[@]}" -eq 0 ]; then
+  echo "No SSH keys in the Bitwarden vault, authorized_keys left untouched." >&2
+  exit 0
+fi
+
+# Replace the managed block; lines outside it are kept as they are.
+authorized="$ssh_dir/authorized_keys"
+begin="# >>> bitwarden ssh keys >>>"
+end="# <<< bitwarden ssh keys <<<"
+tmp="$(mktemp)"
+trap 'rm -f "$tmp"' EXIT
+if [ -f "$authorized" ]; then
+  sed "/^$begin\$/,/^$end\$/d" "$authorized" > "$tmp"
+fi
+{
+  echo "$begin"
+  printf '%s\n' "${keys[@]}"
+  echo "$end"
+} >> "$tmp"
+install -m 600 "$tmp" "$authorized"
+echo "Updated ~/.ssh/authorized_keys with ${#keys[@]} key(s) from Bitwarden."
+{{ end -}}

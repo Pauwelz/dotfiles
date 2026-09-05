@@ -87,13 +87,14 @@ packages:
       - starship
       - curl
       - ca-certificates
+      # jq parses `bw list items` in the SSH-key script
+      - jq
     apt_desktop:
       - pipx
     apt_devtools:
       - dotnet-sdk-10.0
       # fzf enables the interactive mode of kubectx/kubens
       - fzf
-      - jq
       - unzip
       - gh
     snap:
@@ -102,3 +103,5 @@ packages:
       - gnome-extensions-cli
     gext:
       - dash-to-panel@jderose9.github.com
+      # Tailscale toggle in quick settings; needs `tailscale set --operator`
+      - tailscale-gnome-qs@tailscale-qs.github.io

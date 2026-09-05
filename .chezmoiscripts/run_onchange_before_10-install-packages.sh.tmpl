@@ -73,6 +73,11 @@ pipx ensurepath
 # --system-site-packages gives gnome-extensions-cli access to the distro PyGObject
 pipx install {{ . | quote }} --system-site-packages
 {{ end }}
+# Lets the Tailscale quick-settings extension toggle the connection without root
+if command -v tailscale > /dev/null; then
+  sudo tailscale set --operator="$(whoami)"
+fi
+
 GEXT="{{ .chezmoi.homeDir }}/.local/bin/gext"
 if [ -n "${DBUS_SESSION_BUS_ADDRESS:-}" ] && [ -x "$GEXT" ]; then
 {{- range .packages.linux.gext }}

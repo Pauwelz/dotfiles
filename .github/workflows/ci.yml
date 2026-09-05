@@ -7,6 +7,8 @@ on:
 env:
   DESKTOP_PROMPT: "Is this a GNOME desktop (install GUI apps and fonts and apply dconf settings)"
   DEVTOOLS_PROMPT: "Is this a development machine (install Docker plus .NET/Kubernetes/Azure tooling and create a k3d cluster)"
+  WORK_EMAIL_PROMPT: "Work email (used for Azure DevOps repos)"
+  WORK_EMAIL: ci@example.invalid
 
 jobs:
   check:
@@ -33,13 +35,21 @@ jobs:
           key: chezmoi-externals-${{ hashFiles('.chezmoidata/packages.yaml') }}
 
       - name: Stub the Bitwarden CLI
-        # A fake bw so the hook is a no-op and bitwardenFields can be exercised
+        # A fake bw so the hook is a no-op and the SSH-key script can be exercised
         run: |
           cat > "$HOME/.local/bin/bw" <<'EOF'
           #!/bin/bash
           case "$1" in
-            status) echo '{"status":"unlocked"}' ;;
-            get) echo '{"fields":[{"name":"Work Email","value":"ci@example.invalid"}]}' ;;
+            status) echo '{"status":"unlocked","serverUrl":"https://vault.bitwarden.eu"}' ;;
+            sync) ;;
+            list) cat <<'JSON'
+          [
+            {"type": 1, "name": "some login", "login": {"username": "x"}},
+            {"type": 5, "name": "id_ed25519", "sshKey": {"publicKey": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFAKEFAKEFAKEFAKEFAKEFAKEFAKEFAKEFAKEFAKEFAKE", "keyFingerprint": "SHA256:x"}},
+            {"type": 5, "name": "Work Key (RSA)", "sshKey": {"publicKey": "ssh-rsa AAAAB3NzaC1yc2EFAKE", "keyFingerprint": "SHA256:y"}}
+          ]
+          JSON
+            ;;
             *) echo "stub bw: unexpected args $*" >&2; exit 1 ;;
           esac
           EOF
@@ -51,12 +61,12 @@ jobs:
           bash -n .install-password-manager.sh .github/scripts/lint-scripts.sh
 
       - name: Validate config template
-        run: chezmoi execute-template --init --promptBool "$DESKTOP_PROMPT=true" --promptBool "$DEVTOOLS_PROMPT=true" < .chezmoi.toml.tmpl
+        run: chezmoi execute-template --init --promptBool "$DESKTOP_PROMPT=true" --promptBool "$DEVTOOLS_PROMPT=true" --promptString "$WORK_EMAIL_PROMPT=$WORK_EMAIL" < .chezmoi.toml.tmpl
 
       # --- Scenario 1: desktop + devtools ---------------------------------------
       - name: Initialise as desktop + devtools
         run: |
-          chezmoi init --prompt --promptBool "$DESKTOP_PROMPT=true" --promptBool "$DEVTOOLS_PROMPT=true"
+          chezmoi init --prompt --promptBool "$DESKTOP_PROMPT=true" --promptBool "$DEVTOOLS_PROMPT=true" --promptString "$WORK_EMAIL_PROMPT=$WORK_EMAIL"
           cat "$HOME/.config/chezmoi/chezmoi.toml"
 
       - name: chezmoi doctor
@@ -65,8 +75,34 @@ jobs:
       - name: Dry-run apply (files and externals, no scripts)
         run: chezmoi apply --dry-run --verbose --exclude=scripts
 
-      - name: Check the work email is read through bitwardenFields
-        run: chezmoi cat ~/.config/git/devops.gitconfig | grep -q 'email = ci@example.invalid'
+      - name: Check the work email comes from the init prompt
+        run: chezmoi cat ~/.config/git/devops.gitconfig | grep -q "email = $WORK_EMAIL"
+
+      - name: Check the SSH config (desktop)
+        run: |
+          chezmoi cat ~/.ssh/config | tee /tmp/ssh_config
+          grep -q 'IdentityAgent .*bitwarden-ssh-agent.sock' /tmp/ssh_config
+          chezmoi managed | grep -qx '.ssh/config.d/github.conf'
+          chezmoi managed | grep -qx '.ssh/config.d/azure-devops.conf'
+
+      - name: Run the SSH-key script against the stubbed vault
+        # HOME points at a scratch dir so the runner's own ~/.ssh is untouched
+        run: |
+          chezmoi execute-template < .chezmoiscripts/run_after_65-bitwarden-ssh-keys.sh.tmpl > /tmp/sshkeys.sh
+          export HOME=/tmp/fakehome
+          mkdir -p "$HOME/.ssh"
+          echo 'ssh-ed25519 AAAAexisting existing@host' > "$HOME/.ssh/authorized_keys"
+          bash /tmp/sshkeys.sh
+          bash /tmp/sshkeys.sh   # second run must be idempotent
+          ls -la "$HOME/.ssh"
+          cat "$HOME/.ssh/authorized_keys"
+          grep -q '^ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFAKE.* id_ed25519$' "$HOME/.ssh/id_ed25519.pub"
+          grep -q '^ssh-rsa AAAAB3NzaC1yc2EFAKE Work Key (RSA)$' "$HOME/.ssh/work-key--rsa-.pub"
+          test "$(grep -c 'existing@host' "$HOME/.ssh/authorized_keys")" -eq 1
+          test "$(grep -c 'id_ed25519$' "$HOME/.ssh/authorized_keys")" -eq 1
+          test "$(grep -c 'bitwarden ssh keys' "$HOME/.ssh/authorized_keys")" -eq 2
+          test "$(stat -c %a "$HOME/.ssh/authorized_keys")" = 600
+          test "$(stat -c %a "$HOME/.ssh/id_ed25519.pub")" = 644
 
       - name: Lint rendered scripts (desktop + devtools)
         run: .github/scripts/lint-scripts.sh
@@ -77,6 +113,8 @@ jobs:
           grep -q 'docker-ce' /tmp/pkgs.sh
           grep -q 'google-chrome' /tmp/pkgs.sh
           grep -q 'tailscale' /tmp/pkgs.sh
+          grep -q 'tailscale set --operator' /tmp/pkgs.sh
+          grep -q 'tailscale-gnome-qs@tailscale-qs.github.io' /tmp/pkgs.sh
           ! grep -q '{codename}' /tmp/pkgs.sh
           test "$(grep -c 'microsoft-archive-keyring.gpg' /tmp/pkgs.sh)" -ge 2
 
@@ -93,7 +131,7 @@ jobs:
       # --- Scenario 2: devtools only (headless devbox) --------------------------
       - name: Re-initialise as devtools only
         run: |
-          chezmoi init --prompt --promptBool "$DESKTOP_PROMPT=false" --promptBool "$DEVTOOLS_PROMPT=true"
+          chezmoi init --prompt --promptBool "$DESKTOP_PROMPT=false" --promptBool "$DEVTOOLS_PROMPT=true" --promptString "$WORK_EMAIL_PROMPT=$WORK_EMAIL"
           cat "$HOME/.config/chezmoi/chezmoi.toml"
 
       - name: Lint rendered scripts (devtools only)
@@ -114,7 +152,7 @@ jobs:
       # --- Scenario 3: neither (server / WSL) -----------------------------------
       - name: Re-initialise as a plain machine
         run: |
-          chezmoi init --prompt --promptBool "$DESKTOP_PROMPT=false" --promptBool "$DEVTOOLS_PROMPT=false"
+          chezmoi init --prompt --promptBool "$DESKTOP_PROMPT=false" --promptBool "$DEVTOOLS_PROMPT=false" --promptString "$WORK_EMAIL_PROMPT=$WORK_EMAIL"
           cat "$HOME/.config/chezmoi/chezmoi.toml"
 
       - name: Lint rendered scripts (plain)
@@ -126,7 +164,12 @@ jobs:
           ! grep -q 'docker-ce' /tmp/pkgs.sh
           ! grep -q 'google-chrome' /tmp/pkgs.sh
           grep -q 'tailscale' /tmp/pkgs.sh
+          ! grep -q 'tailscale set --operator' /tmp/pkgs.sh
           grep -q '"fish"' /tmp/pkgs.sh
+          grep -q '"jq"' /tmp/pkgs.sh
           chezmoi managed | tee /tmp/managed.txt
           ! grep -qE '^\.config/ghostty|^\.local/share/fonts|^\.local/bin/|^\.config/k3d' /tmp/managed.txt
+          grep -qx '.ssh/config' /tmp/managed.txt
+          grep -qx '.ssh/config.d/azure-devops.conf' /tmp/managed.txt
+          ! chezmoi cat ~/.ssh/config | grep -q IdentityAgent
           chezmoi apply --dry-run --verbose
