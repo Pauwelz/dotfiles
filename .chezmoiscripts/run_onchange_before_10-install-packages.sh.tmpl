@@ -13,7 +13,7 @@ sudo apt-get install -y curl gnupg ca-certificates
 
 {{ range .packages.linux.apt_repos -}}
 {{- $when := get . "when" | default "always" -}}
-{{- $enabled := or (eq $when "always") (and (eq $when "desktop") $.desktop) (and (eq $when "devtools") $.devtools) -}}
+{{- $enabled := or (eq $when "always") (and (eq $when "desktop") $.desktop) (and (eq $when "laptop") $.laptop) (and (eq $when "devtools") $.devtools) -}}
 {{- if $enabled -}}
 {{- $repoPackages = concat $repoPackages .packages -}}
 {{- /* key_format "asc" keeps the key armored; source_format "list" writes a one-line

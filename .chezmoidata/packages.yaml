@@ -26,7 +26,8 @@ gnome_extensions:
 
 packages:
   linux:
-    # `when` selects the machines that get the repo: always, desktop or devtools.
+    # `when` selects the machines that get the repo: always, desktop, laptop or
+    # devtools. laptop implies desktop (see .chezmoi.toml.tmpl).
     # `{codename}` is replaced with the Ubuntu release codename by the install
     # script. `keyring` lets repos signed by the same key share one keyring file.
     apt_repos:
@@ -60,6 +61,29 @@ packages:
         components: main
         architectures: amd64 arm64
         packages: [claude-desktop]
+      - name: gundulabs
+        when: laptop
+        # Gaze face authentication (https://github.com/GunduLabs/gaze). The key is
+        # served already dearmored; `gpg --dearmor` passes binary input through
+        # unchanged. The repo only carries Ubuntu noble, questing and resolute.
+        key_url: https://packages.gundulabs.com/keys/gundulabs-repo.gpg
+        uri: https://packages.gundulabs.com/deb
+        suites: "{codename}"
+        components: main
+        architectures: amd64 arm64
+        # gaze-gnome-extension adds face unlock to the GDM lock screen and is
+        # enabled through the dconf template.
+        packages: [gaze, gaze-gui, gaze-gnome-extension]
+      - name: teams-for-linux
+        when: laptop
+        # https://teamsforlinux.de/ (unofficial Electron client)
+        key_url: https://repo.teamsforlinux.de/teams-for-linux.asc
+        key_format: asc
+        uri: https://repo.teamsforlinux.de/debian/
+        suites: stable
+        components: main
+        architectures: amd64
+        packages: [teams-for-linux]
       - name: docker
         when: devtools
         key_url: https://download.docker.com/linux/ubuntu/gpg

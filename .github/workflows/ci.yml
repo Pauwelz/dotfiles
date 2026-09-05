@@ -105,7 +105,8 @@ jobs:
           test "$(stat -c %a "$HOME/.ssh/id_ed25519.pub")" = 644
 
       - name: Lint rendered scripts (desktop + devtools)
-        run: .github/scripts/lint-scripts.sh
+        # 85 (Gaze hint) is laptop-only
+        run: .github/scripts/lint-scripts.sh 85
 
       - name: Check package selection (desktop + devtools)
         run: |
@@ -116,6 +117,13 @@ jobs:
           grep -q 'tailscale set --operator' /tmp/pkgs.sh
           ! grep -q 'pipx' /tmp/pkgs.sh
           ! grep -q '{codename}' /tmp/pkgs.sh
+          # The runner is not a laptop (chassis type), so no Gaze or Teams
+          grep -q 'laptop = false' "$HOME/.config/chezmoi/chezmoi.toml"
+          ! grep -q 'gundulabs' /tmp/pkgs.sh
+          ! grep -q 'teams-for-linux' /tmp/pkgs.sh
+          chezmoi execute-template < .chezmoiscripts/run_onchange_after_40-dconf.sh.tmpl > /tmp/dconf.sh
+          grep -q "enabled-extensions=\['dash-to-panel@jderose9.github.com', 'tailscale-gnome-qs@tailscale-qs.github.io'\]" /tmp/dconf.sh
+          ! grep -q 'gaze' /tmp/dconf.sh
           test "$(grep -c 'microsoft-archive-keyring.gpg' /tmp/pkgs.sh)" -ge 2
           chezmoi execute-template < .chezmoiscripts/run_onchange_before_25-remove-packages.sh.tmpl > /tmp/remove.sh
           grep -q 'firefox' /tmp/remove.sh
@@ -137,6 +145,36 @@ jobs:
           grep -qx '.local/share/just-the-browser/chrome-managed_policies.json' /tmp/managed.txt
           chezmoi cat ~/.local/share/just-the-browser/chrome-managed_policies.json | jq -e '.GeminiSettings == 1' > /dev/null
 
+      # --- Scenario 1b: laptop (desktop + devtools + chassis type laptop) -------
+      - name: Pretend the runner is a laptop
+        # laptop is derived from /sys/class/dmi/id/chassis_type on init, not
+        # prompted, so flip it in the generated config instead
+        run: |
+          sed -i 's/^    laptop = false$/    laptop = true/' "$HOME/.config/chezmoi/chezmoi.toml"
+          grep -q 'laptop = true' "$HOME/.config/chezmoi/chezmoi.toml"
+
+      - name: Lint rendered scripts (laptop)
+        run: .github/scripts/lint-scripts.sh
+
+      - name: Check package selection and dconf (laptop)
+        run: |
+          chezmoi execute-template < .chezmoiscripts/run_onchange_before_10-install-packages.sh.tmpl > /tmp/pkgs.sh
+          grep -q 'google-chrome' /tmp/pkgs.sh
+          grep -q 'packages.gundulabs.com/deb' /tmp/pkgs.sh
+          grep -q '"gaze-gnome-extension"' /tmp/pkgs.sh
+          grep -q 'gundulabs-archive-keyring.gpg' /tmp/pkgs.sh
+          grep -q 'teams-for-linux-archive-keyring.asc' /tmp/pkgs.sh
+          grep -q '"teams-for-linux"' /tmp/pkgs.sh
+          ! grep -q '{codename}' /tmp/pkgs.sh
+          chezmoi execute-template < .chezmoiscripts/run_onchange_after_40-dconf.sh.tmpl > /tmp/dconf.sh
+          grep -q "'gaze@gundulabs.com'" /tmp/dconf.sh
+          grep -q "'com.github.IsmaelMartinez.teams_for_linux.desktop', 'org.gnome.Nautilus.desktop'" /tmp/dconf.sh
+          grep -q '^\[extensions/gaze\]$' /tmp/dconf.sh
+          grep -q '^enable-face-authentication=true$' /tmp/dconf.sh
+          chezmoi execute-template < .chezmoiscripts/run_after_85-gaze-hint.sh.tmpl > /tmp/gaze.sh
+          grep -q 'gaze add-face default' /tmp/gaze.sh
+          chezmoi apply --dry-run --verbose --exclude=scripts
+
       # --- Scenario 2: devtools only (headless devbox) --------------------------
       - name: Re-initialise as devtools only
         run: |
@@ -144,7 +182,7 @@ jobs:
           cat "$HOME/.config/chezmoi/chezmoi.toml"
 
       - name: Lint rendered scripts (devtools only)
-        run: .github/scripts/lint-scripts.sh 20 25 35 40 45 50
+        run: .github/scripts/lint-scripts.sh 20 25 35 40 45 50 85
 
       - name: Check package selection and managed files (devtools only)
         run: |
@@ -165,7 +203,7 @@ jobs:
           cat "$HOME/.config/chezmoi/chezmoi.toml"
 
       - name: Lint rendered scripts (plain)
-        run: .github/scripts/lint-scripts.sh 20 25 35 40 45 50 60 70
+        run: .github/scripts/lint-scripts.sh 20 25 35 40 45 50 60 70 85
 
       - name: Check package selection and managed files (plain)
         run: |

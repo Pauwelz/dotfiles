@@ -3,9 +3,20 @@
 {{- $desktop := promptBoolOnce . "desktop" "Is this a GNOME desktop (install GUI apps and fonts and apply dconf settings)" -}}
 {{- $devtools := promptBoolOnce . "devtools" "Is this a development machine (install Docker plus .NET/Kubernetes/Azure tooling and create a k3d cluster)" -}}
 {{- $workEmail := promptStringOnce . "workEmail" "Work email (used for Azure DevOps repos)" -}}
+{{- /* Laptops get a few extras on top of the desktop set (Gaze face unlock, Teams).
+       Detected from the SMBIOS chassis type instead of a prompt; re-evaluated on
+       every `chezmoi init`. 8 Portable, 9 Laptop, 10 Notebook, 14 Sub Notebook,
+       31 Convertible, 32 Detachable. Servers, VMs and WSL report something else
+       or have no DMI at all. */ -}}
+{{- $chassis := "" -}}
+{{- if stat "/sys/class/dmi/id/chassis_type" -}}
+{{-   $chassis = output "cat" "/sys/class/dmi/id/chassis_type" | trim -}}
+{{- end -}}
+{{- $laptop := and $desktop (has $chassis (list "8" "9" "10" "14" "31" "32")) -}}
 [data]
     desktop = {{ $desktop }}
     devtools = {{ $devtools }}
+    laptop = {{ $laptop }}
     workEmail = {{ $workEmail | quote }}
 
 # Installs and logs in to the Bitwarden CLI before chezmoi reads the source
