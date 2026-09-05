@@ -20,6 +20,14 @@
     url = "https://github.com/tailscale-qs/tailscale-gnome-qs/releases/download/{{ .gnome_extensions.tailscale_qs }}/tailscale-gnome-qs%40tailscale-qs.github.io.zip"
     exact = true
     refreshPeriod = "168h"
+
+{{- /* Just the Browser policy for Chrome, copied into /etc by run_after_45. Tracks
+       the upstream main branch, so a change there lands at the next refresh. */}}
+
+[".local/share/just-the-browser/chrome-managed_policies.json"]
+    type = "file"
+    url = "https://raw.githubusercontent.com/corbindavenport/just-the-browser/main/chrome/managed_policies.json"
+    refreshPeriod = "168h"
 {{ end -}}
 {{ if .devtools -}}
 {{- /* Release binaries pinned in .chezmoidata/packages.yaml (tools.*). Some projects

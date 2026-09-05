@@ -120,9 +120,8 @@ jobs:
           chezmoi execute-template < .chezmoiscripts/run_onchange_before_25-remove-packages.sh.tmpl > /tmp/remove.sh
           grep -q 'firefox' /tmp/remove.sh
           grep -q 'ptyxis' /tmp/remove.sh
-          chezmoi execute-template < .chezmoiscripts/run_onchange_after_45-chrome-policies.sh.tmpl > /tmp/chrome.sh
+          chezmoi execute-template < .chezmoiscripts/run_after_45-chrome-policies.sh.tmpl > /tmp/chrome.sh
           grep -q '/etc/opt/chrome/policies/managed/managed_policies.json' /tmp/chrome.sh
-          sed -n '/<<.EOF_POLICY./,/^EOF_POLICY$/{//!p}' /tmp/chrome.sh | jq -e '.GeminiSettings == 1' > /dev/null
 
       - name: Show rendered fish config
         run: chezmoi cat ~/.config/fish/config.fish
@@ -135,6 +134,8 @@ jobs:
           grep -q '^\.config/k3d/dev.yaml$' /tmp/managed.txt
           grep -qx '.local/share/gnome-shell/extensions/dash-to-panel@jderose9.github.com/metadata.json' /tmp/managed.txt
           grep -qx '.local/share/gnome-shell/extensions/tailscale-gnome-qs@tailscale-qs.github.io/metadata.json' /tmp/managed.txt
+          grep -qx '.local/share/just-the-browser/chrome-managed_policies.json' /tmp/managed.txt
+          chezmoi cat ~/.local/share/just-the-browser/chrome-managed_policies.json | jq -e '.GeminiSettings == 1' > /dev/null
 
       # --- Scenario 2: devtools only (headless devbox) --------------------------
       - name: Re-initialise as devtools only
@@ -152,7 +153,7 @@ jobs:
           ! grep -q 'google-chrome' /tmp/pkgs.sh
           ! grep -q 'snap install' /tmp/pkgs.sh
           chezmoi managed | tee /tmp/managed.txt
-          ! grep -qE '^\.config/ghostty|^\.local/share/fonts|gnome-shell/extensions' /tmp/managed.txt
+          ! grep -qE '^\.config/ghostty|^\.local/share/fonts|gnome-shell/extensions|just-the-browser' /tmp/managed.txt
           grep -q '^\.local/bin/k3d$' /tmp/managed.txt
           chezmoi cat ~/.config/fish/config.fish | grep -q DOTNET_NOLOGO
           chezmoi apply --dry-run --verbose --exclude=scripts
