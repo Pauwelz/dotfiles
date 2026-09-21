@@ -9,7 +9,7 @@ fonts:
 # (see .chezmoiexternal.toml.tmpl). Bump a version and run `chezmoi apply`.
 tools:
   kubectl: "v1.37.0"
-  helm: "v4.2.4"
+  helm: "v4.3.0"
   k9s: "v0.51.0"
   kubectx: "v0.11.0"
   k3d: "v5.9.0"
@@ -20,7 +20,7 @@ tools:
 # desktops (see .chezmoiexternal.toml.tmpl). GitHub release tags; the zips are
 # the same builds extensions.gnome.org ships. Enabled via the dconf template.
 gnome_extensions:
-  dash_to_panel: "v73"
+  dash_to_panel: "v74"
   # Tailscale toggle in quick settings; needs `tailscale set --operator`
   tailscale_qs: "v9"
 
